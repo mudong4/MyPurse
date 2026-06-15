@@ -38,6 +38,8 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -87,21 +89,31 @@ fun AddTransactionScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var showDatePicker by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // 初始化默认值
     LaunchedEffect(defaultFlowType, defaultDate) {
         viewModel.initialize(defaultFlowType, defaultDate)
     }
 
-    // 保存成功且非连续记账模式 → 返回
-    LaunchedEffect(uiState.saveSuccess) {
-        if (uiState.saveSuccess) {
-            viewModel.clearSaveSuccess()
+    // 保存并关闭 → 返回首页
+    LaunchedEffect(uiState.shouldClose) {
+        if (uiState.shouldClose) {
+            viewModel.clearShouldClose()
             onNavigateBack()
         }
     }
 
+    // 连续记账保存成功 → 轻提示
+    LaunchedEffect(uiState.saveSuccess) {
+        if (uiState.saveSuccess) {
+            viewModel.clearSaveSuccess()
+            snackbarHostState.showSnackbar("已保存，可继续记账")
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { },

@@ -19,6 +19,7 @@ data class AddTransactionUiState(
     val isCategoryPickerVisible: Boolean = false,
     val selectedPickerL1: Category? = null,
     val isSaving: Boolean = false,
+    val shouldClose: Boolean = false,
     val saveSuccess: Boolean = false,
     val errorMessage: String? = null
 ) {

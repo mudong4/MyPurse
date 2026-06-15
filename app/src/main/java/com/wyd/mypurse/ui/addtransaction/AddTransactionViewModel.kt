@@ -160,7 +160,7 @@ class AddTransactionViewModel @Inject constructor(
     // ========== 保存 ==========
 
     /**
-     * 保存并继续（连续记账模式）：不清空类型/分类/日期。
+     * 保存并继续（连续记账模式）：清空金额和备注，保留类型/分类/日期，不关闭页面。
      */
     fun saveAndContinue() {
         val state = _uiState.value
@@ -223,7 +223,7 @@ class AddTransactionViewModel @Inject constructor(
                 _uiState.update {
                     it.copy(
                         isSaving = false,
-                        saveSuccess = true
+                        shouldClose = true
                     )
                 }
             } catch (e: Exception) {
@@ -235,6 +235,10 @@ class AddTransactionViewModel @Inject constructor(
                 }
             }
         }
+    }
+
+    fun clearShouldClose() {
+        _uiState.update { it.copy(shouldClose = false) }
     }
 
     fun clearSaveSuccess() {
