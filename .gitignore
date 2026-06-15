@@ -1,0 +1,34 @@
+# --- IDE ---
+*.iml
+.idea/
+*.iws
+
+# --- Gradle ---
+.gradle
+.kotlin/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# --- Android ---
+local.properties
+/captures
+.externalNativeBuild
+.cxx
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+app/release/
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Logs & Dumps ---
+*.log
+*.hprof
+*.tmp
+
+# --- CodeBuddy ---
+.codebuddy/
