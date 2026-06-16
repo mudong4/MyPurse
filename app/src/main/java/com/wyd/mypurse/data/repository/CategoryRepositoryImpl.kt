@@ -46,7 +46,6 @@ class CategoryRepositoryImpl @Inject constructor(
     override suspend fun addCategory(
         name: String,
         parentId: Long?,
-        icon: String,
         isDefault: Boolean,
         flowSign: Int
     ): Long {
@@ -54,7 +53,6 @@ class CategoryRepositoryImpl @Inject constructor(
         val entity = CategoryDefEntity(
             name = name,
             parentId = parentId,
-            icon = icon,
             isDefault = isDefault,
             sortOrder = maxOrder + 1,
             flowSign = flowSign
@@ -67,9 +65,9 @@ class CategoryRepositoryImpl @Inject constructor(
         categoryDefDao.insertCategories(entities)
     }
 
-    override suspend fun updateCategory(id: Long, name: String, icon: String) {
+    override suspend fun updateCategory(id: Long, name: String) {
         val existing = categoryDefDao.getCategoryById(id) ?: return
-        categoryDefDao.updateCategory(existing.copy(name = name, icon = icon))
+        categoryDefDao.updateCategory(existing.copy(name = name))
     }
 
     override suspend fun updateSortOrder(id: Long, sortOrder: Int) {
@@ -111,6 +109,10 @@ class CategoryRepositoryImpl @Inject constructor(
         return categoryDefDao.getCategoryByName(name, parentId) != null
     }
 
+    override suspend fun isCategoryExists(name: String, parentId: Long?, flowSign: Int): Boolean {
+        return categoryDefDao.getCategoryByNameAndSign(name, parentId, flowSign) != null
+    }
+
     override suspend fun restoreDefaultCategories() {
         val defaults = CategoryDefaults.allCategories
         val existing = categoryDefDao.getAllCategoriesOnce()
@@ -123,29 +125,27 @@ class CategoryRepositoryImpl @Inject constructor(
             }
         }
 
-        // 2. 补充缺失的一级分类
-        val existingNames = existing.map { it.name to it.parentId }.toSet()
-        val toAdd = defaults.filter { (it.name to it.parentId) !in existingNames }
+        // 2. 补充缺失的一级分类（按 name + parentId + flowSign 三元组去重）
+        val existingNames = existing.map { Triple(it.name, it.parentId, it.flowSign) }.toSet()
+        val toAdd = defaults.filter { Triple(it.name, it.parentId, it.flowSign) !in existingNames }
             .map { toEntity(it) }
         if (toAdd.isNotEmpty()) {
             categoryDefDao.insertCategories(toAdd)
         }
 
-        // 3. 恢复二级分类：补全缺失的二级分类
+        // 3. 恢复二级分类：补全缺失的二级分类（按 name + parentId 去重）
         val subDefaults = CategoryDefaults.subCategories
         for ((parentName, subs) in subDefaults) {
             val parent = categoryDefDao.getCategoryByName(parentName, null) ?: continue
             val existingSubs = categoryDefDao.getSubCategoriesOnce(parent.id)
             val existingSubNames = existingSubs.map { it.name }.toSet()
 
-            for ((index, sub) in subs.withIndex()) {
-                val (subName, subIcon) = sub
+            for ((index, subName) in subs.withIndex()) {
                 if (subName !in existingSubNames) {
                     categoryDefDao.insertCategory(
                         CategoryDefEntity(
                             name = subName,
                             parentId = parent.id,
-                            icon = subIcon,
                             isDefault = true,
                             sortOrder = index + 1,
                             flowSign = parent.flowSign
@@ -160,7 +160,6 @@ class CategoryRepositoryImpl @Inject constructor(
         id = entity.id,
         name = entity.name,
         parentId = entity.parentId,
-        icon = entity.icon,
         isDefault = entity.isDefault,
         isHidden = entity.isHidden,
         sortOrder = entity.sortOrder,
@@ -171,7 +170,6 @@ class CategoryRepositoryImpl @Inject constructor(
         id = model.id,
         name = model.name,
         parentId = model.parentId,
-        icon = model.icon,
         isDefault = model.isDefault,
         isHidden = model.isHidden,
         sortOrder = model.sortOrder,

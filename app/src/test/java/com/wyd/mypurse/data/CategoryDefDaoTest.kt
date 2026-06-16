@@ -40,7 +40,6 @@ class CategoryDefDaoTest {
         val category = CategoryDefEntity(
             name = "餐饮",
             parentId = null,
-            icon = "restaurant",
             isDefault = true,
             sortOrder = 1
         )

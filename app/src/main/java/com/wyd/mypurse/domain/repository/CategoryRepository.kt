@@ -33,13 +33,13 @@ interface CategoryRepository {
     suspend fun getCategoryById(id: Long): Category?
 
     /** 新增分类，返回新 ID */
-    suspend fun addCategory(name: String, parentId: Long?, icon: String, isDefault: Boolean, flowSign: Int = -1): Long
+    suspend fun addCategory(name: String, parentId: Long?, isDefault: Boolean, flowSign: Int = -1): Long
 
     /** 批量新增分类（用于恢复默认） */
     suspend fun addCategories(categories: List<Category>)
 
-    /** 更新分类名称和图标 */
-    suspend fun updateCategory(id: Long, name: String, icon: String)
+    /** 更新分类名称 */
+    suspend fun updateCategory(id: Long, name: String)
 
     /** 更新分类排序 */
     suspend fun updateSortOrder(id: Long, sortOrder: Int)
@@ -53,8 +53,11 @@ interface CategoryRepository {
     /** 删除分类及所有关联记录（含子分类和流水） */
     suspend fun deleteCategoryWithRecords(categoryId: Long)
 
-    /** 判断分类是否已存在 */
+    /** 判断分类是否已存在（仅按 name + parentId 检查） */
     suspend fun isCategoryExists(name: String, parentId: Long?): Boolean
+
+    /** 判断分类是否已存在（按 name + parentId + flowSign 精确检查） */
+    suspend fun isCategoryExists(name: String, parentId: Long?, flowSign: Int): Boolean
 
     /** 恢复默认分类（跳过已存在的） */
     suspend fun restoreDefaultCategories()

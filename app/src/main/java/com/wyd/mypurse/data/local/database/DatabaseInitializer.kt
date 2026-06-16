@@ -3,6 +3,8 @@ package com.wyd.mypurse.data.local.database
 import com.wyd.mypurse.data.local.dao.CategoryDefDao
 import com.wyd.mypurse.data.local.entity.CategoryDefEntity
 import com.wyd.mypurse.data.repository.CategoryDefaults
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,18 +18,48 @@ class DatabaseInitializer @Inject constructor(
 ) {
     /** 是否已初始化 */
     private var initialized = false
+    private val mutex = Mutex()
 
     /**
      * 执行首次初始化。如果数据库已有数据则跳过。
      * 调用方应在协程中调用此方法。
+     * 使用 Mutex 防止并发重复插入（如 ViewModel init 和 LaunchedEffect 同时触发）。
+     * 同时清理历史重复数据（由旧版本 race condition 导致的 name+parentId 重复项）。
      */
     suspend fun initializeIfNeeded() {
         if (initialized) return
-        val count = categoryDefDao.getAllCategoriesOnce().size
-        if (count == 0) {
-            seedDefaultCategories()
+        mutex.withLock {
+            if (initialized) return
+            val allCategories = categoryDefDao.getAllCategoriesOnce()
+            if (allCategories.isNotEmpty()) {
+                // 清理历史重复数据
+                cleanDuplicateCategories(allCategories)
+            } else {
+                seedDefaultCategories()
+            }
+            initialized = true
         }
-        initialized = true
+    }
+
+    /**
+     * 清理历史重复的分类记录（name + parentId + flowSign 相同的保留第一条）。
+     */
+    private suspend fun cleanDuplicateCategories(allCategories: List<CategoryDefEntity>) {
+        val seen = mutableSetOf<Triple<String, Long?, Int>>()
+        val toDelete = mutableListOf<Long>()
+
+        for (category in allCategories) {
+            val key = Triple(category.name, category.parentId, category.flowSign)
+            if (key in seen) {
+                toDelete.add(category.id)
+            } else {
+                seen.add(key)
+            }
+        }
+
+        for (id in toDelete) {
+            categoryDefDao.deleteCategory(id)
+        }
     }
 
     /**
@@ -43,26 +75,24 @@ class DatabaseInitializer @Inject constructor(
 
     private suspend fun seedCategoriesByFlowType(
         topLevel: List<com.wyd.mypurse.domain.model.Category>,
-        subMap: Map<String, List<Pair<String, String>>>
+        subMap: Map<String, List<String>>
     ) {
         for (category in topLevel) {
             val id = categoryDefDao.insertCategory(
                 CategoryDefEntity(
                     name = category.name,
                     parentId = null,
-                    icon = category.icon,
                     isDefault = true,
                     sortOrder = category.sortOrder,
                     flowSign = category.flowSign
                 )
             )
             val subs = subMap[category.name] ?: continue
-            subs.forEachIndexed { index, (name, icon) ->
+            subs.forEachIndexed { index, name ->
                 categoryDefDao.insertCategory(
                     CategoryDefEntity(
                         name = name,
                         parentId = id,
-                        icon = icon,
                         isDefault = true,
                         sortOrder = index + 1,
                         flowSign = category.flowSign

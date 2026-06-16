@@ -24,9 +24,6 @@ data class CategoryDefEntity(
     @ColumnInfo(name = "parent_id")
     val parentId: Long? = null,
 
-    /** 图标标识 */
-    val icon: String = "default",
-
     /** 是否为内置分类 */
     @ColumnInfo(name = "is_default")
     val isDefault: Boolean = false,

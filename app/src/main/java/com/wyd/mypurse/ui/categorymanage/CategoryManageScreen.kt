@@ -1,6 +1,5 @@
 package com.wyd.mypurse.ui.categorymanage
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
@@ -13,11 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -57,6 +58,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -231,7 +233,7 @@ fun CategoryManageScreen(
             category = dialog.category,
             parentId = dialog.parentId,
             onDismiss = { viewModel.onDismissEditDialog() },
-            onSave = { name, parentId, icon -> viewModel.onSaveCategory(name, parentId, icon) }
+            onSave = { name, parentId -> viewModel.onSaveCategory(name, parentId) }
         )
     }
 
@@ -339,10 +341,12 @@ private fun CategoryItem(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Text(
-                            text = sub.name,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = sub.name,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
                         Row {
                             TextButton(onClick = { onEditSub(sub) }) { Text("编辑") }
                             TextButton(
@@ -376,7 +380,7 @@ private fun CategoryEditDialog(
     category: Category?,
     parentId: Long?,
     onDismiss: () -> Unit,
-    onSave: (name: String, parentId: Long?, icon: String) -> Unit
+    onSave: (name: String, parentId: Long?) -> Unit
 ) {
     var name by remember { mutableStateOf(category?.name ?: "") }
     val isEdit = category != null
@@ -385,19 +389,21 @@ private fun CategoryEditDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (isEdit) "编辑分类" else "新增分类") },
         text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("分类名称") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
+            Column(modifier = Modifier.fillMaxWidth()) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("分类名称") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (name.isNotBlank()) {
-                        onSave(name.trim(), parentId, category?.icon ?: "default")
+                        onSave(name.trim(), parentId)
                     }
                 },
                 enabled = name.isNotBlank()

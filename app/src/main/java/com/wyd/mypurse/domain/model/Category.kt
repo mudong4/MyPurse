@@ -7,7 +7,6 @@ data class Category(
     val id: Long = 0,
     val name: String,
     val parentId: Long? = null,
-    val icon: String = "default",
     val isDefault: Boolean = false,
     val isHidden: Boolean = false,
     val sortOrder: Int = 0,

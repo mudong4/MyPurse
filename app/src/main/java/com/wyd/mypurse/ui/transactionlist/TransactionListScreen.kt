@@ -73,6 +73,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.Transaction
+import com.wyd.mypurse.ui.components.ChineseDatePickerDialog
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -232,10 +233,13 @@ fun TransactionListScreen(
         when (uiState.granularity) {
             TimeGranularity.DAY, TimeGranularity.WEEK -> {
                 ChineseDatePickerDialog(
-                    currentYear = uiState.currentYear,
-                    currentMonth = uiState.currentMonth,
-                    currentDay = uiState.currentDay,
-                    availableYears = uiState.availableYears,
+                    initialYear = uiState.currentYear,
+                    initialMonth = uiState.currentMonth,
+                    initialDay = uiState.currentDay,
+                    yearList = uiState.availableYears,
+                    todayYear = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR),
+                    todayMonth = java.util.Calendar.getInstance().get(java.util.Calendar.MONTH) + 1,
+                    todayDay = java.util.Calendar.getInstance().get(java.util.Calendar.DAY_OF_MONTH),
                     onSelected = { year, month, day ->
                         viewModel.onDateSelected(year, month, day)
                     },
@@ -917,236 +921,6 @@ private fun YearPickerDialog(
                 }
             }
         )
-}
-
-@Composable
-private fun ChineseDatePickerDialog(
-    currentYear: Int,
-    currentMonth: Int,
-    currentDay: Int,
-    availableYears: List<Int>,
-    onSelected: (Int, Int, Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var selectedYear by remember { mutableStateOf(currentYear) }
-    var selectedMonth by remember { mutableStateOf(currentMonth) }
-    var selectedDay by remember { mutableStateOf(currentDay) }
-    var showYearPicker by remember { mutableStateOf(false) }
-    var showMonthPicker by remember { mutableStateOf(false) }
-
-    // 计算当月天数和第一天是星期几（1=周日 ... 7=周六）
-    val daysInMonth = remember(selectedYear, selectedMonth) {
-        val cal = Calendar.getInstance().apply {
-            set(selectedYear, selectedMonth - 1, 1)
-        }
-        Pair(cal.get(Calendar.DAY_OF_WEEK), cal.getActualMaximum(Calendar.DAY_OF_MONTH))
-    }
-
-    // 年份列表：数据库实际年份 + 当前年
-    val yearList = remember(availableYears, currentYear) {
-        val set = (availableYears + currentYear).toMutableSet()
-        set.sortedDescending()
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = null,
-        text = {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                // 年月导航行
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = {
-                        if (selectedMonth == 1) {
-                            selectedYear--
-                            selectedMonth = 12
-                        } else {
-                            selectedMonth--
-                        }
-                        // 调整日期不超范围
-                        val maxDay = Calendar.getInstance().apply {
-                            set(selectedYear, selectedMonth - 1, 1)
-                        }.getActualMaximum(Calendar.DAY_OF_MONTH)
-                        if (selectedDay > maxDay) selectedDay = maxDay
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, contentDescription = "上月")
-                    }
-                    // 年份可点击选择
-                    Box {
-                        Text(
-                            text = "${selectedYear}年",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .clickable { showYearPicker = true }
-                                .padding(horizontal = 4.dp)
-                        )
-                        DropdownMenu(
-                            expanded = showYearPicker,
-                            onDismissRequest = { showYearPicker = false }
-                        ) {
-                            yearList.forEach { y ->
-                                DropdownMenuItem(
-                                    text = { Text("${y}年", textAlign = TextAlign.Center) },
-                                    onClick = {
-                                        selectedYear = y
-                                        showYearPicker = false
-                                        // 调整日期不超范围
-                                        val maxDay = Calendar.getInstance().apply {
-                                            set(selectedYear, selectedMonth - 1, 1)
-                                        }.getActualMaximum(Calendar.DAY_OF_MONTH)
-                                        if (selectedDay > maxDay) selectedDay = maxDay
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 32.dp)
-                                )
-                            }
-                        }
-                    }
-                    // 月份可点击选择
-                    Box {
-                        Text(
-                            text = "${selectedMonth}月",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .clickable { showMonthPicker = true }
-                                .padding(horizontal = 4.dp)
-                        )
-                        DropdownMenu(
-                            expanded = showMonthPicker,
-                            onDismissRequest = { showMonthPicker = false }
-                        ) {
-                            for (m in 1..12) {
-                                DropdownMenuItem(
-                                    text = { Text("${m}月", textAlign = TextAlign.Center) },
-                                    onClick = {
-                                        selectedMonth = m
-                                        showMonthPicker = false
-                                        val maxDay = Calendar.getInstance().apply {
-                                            set(selectedYear, selectedMonth - 1, 1)
-                                        }.getActualMaximum(Calendar.DAY_OF_MONTH)
-                                        if (selectedDay > maxDay) selectedDay = maxDay
-                                    },
-                                    contentPadding = PaddingValues(horizontal = 32.dp)
-                                )
-                            }
-                        }
-                    }
-                    IconButton(onClick = {
-                        if (selectedMonth == 12) {
-                            selectedYear++
-                            selectedMonth = 1
-                        } else {
-                            selectedMonth++
-                        }
-                        val maxDay = Calendar.getInstance().apply {
-                            set(selectedYear, selectedMonth - 1, 1)
-                        }.getActualMaximum(Calendar.DAY_OF_MONTH)
-                        if (selectedDay > maxDay) selectedDay = maxDay
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = "下月")
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // 星期头：日 一 二 三 四 五 六
-                val weekHeaders = listOf("日", "一", "二", "三", "四", "五", "六")
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    weekHeaders.forEach { header ->
-                        Text(
-                            text = header,
-                            modifier = Modifier.weight(1f),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // 日期网格：6 行 x 7 列
-                val (firstDayOfWeek, maxDay) = daysInMonth
-                // Calendar.DAY_OF_WEEK: 1=Sunday, 7=Saturday → 我们要转成 0=Sun..6=Sat
-                val startOffset = firstDayOfWeek - 1
-                val totalCells = startOffset + maxDay
-
-                for (row in 0 until 6) {
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        for (col in 0 until 7) {
-                            val cellIndex = row * 7 + col
-                            val dayNumber = when {
-                                cellIndex < startOffset -> null
-                                cellIndex >= totalCells -> null
-                                else -> cellIndex - startOffset + 1
-                            }
-                            val isToday =
-                                dayNumber != null &&
-                                dayNumber == currentDay &&
-                                selectedMonth == currentMonth &&
-                                selectedYear == currentYear
-                            val isSelected = dayNumber == selectedDay
-
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .height(40.dp)
-                                    .then(if (dayNumber != null) Modifier.clickable { selectedDay = dayNumber } else Modifier),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (dayNumber != null) {
-                                    Text(
-                                        text = "$dayNumber",
-                                        color = when {
-                                            isSelected && !isToday -> MaterialTheme.colorScheme.primary
-                                            isToday -> MaterialTheme.colorScheme.error
-                                            else -> MaterialTheme.colorScheme.onSurface
-                                        },
-                                        fontWeight = when {
-                                            isSelected || isToday -> FontWeight.Bold
-                                            else -> FontWeight.Normal
-                                        },
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    // 如果这行之后所有格子都是空，就不显示后续行了
-                    if ((row + 1) * 7 > totalCells) break
-                }
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // 已选中的日期文字提示
-                Text(
-                    text = "${selectedYear}年${selectedMonth}月${selectedDay}日",
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSelected(selectedYear, selectedMonth, selectedDay) }) {
-                Text("确定")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("取消")
-            }
-        }
-    )
 }
 
 @Composable

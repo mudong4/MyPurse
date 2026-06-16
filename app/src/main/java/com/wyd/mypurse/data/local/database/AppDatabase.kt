@@ -23,7 +23,7 @@ import com.wyd.mypurse.data.local.entity.TransactionEntity
         BudgetEntity::class,
         RecurringTemplateEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(BigDecimalConverter::class)

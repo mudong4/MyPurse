@@ -92,19 +92,19 @@ class CategoryManageViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(editDialog = null)
     }
 
-    fun onSaveCategory(name: String, parentId: Long?, icon: String) {
+    fun onSaveCategory(name: String, parentId: Long?) {
         viewModelScope.launch {
             val existingDialog = _uiState.value.editDialog ?: return@launch
             if (existingDialog.category != null) {
                 // 编辑模式
                 categoryRepository.updateCategory(
                     id = existingDialog.category.id,
-                    name = name,
-                    icon = icon
+                    name = name
                 )
             } else {
                 // 新增模式
-                val exists = categoryRepository.isCategoryExists(name, parentId)
+                val flowSign = _uiState.value.selectedTab
+                val exists = categoryRepository.isCategoryExists(name, parentId, flowSign)
                 if (exists) {
                     _uiState.value = _uiState.value.copy(
                         error = "分类「$name」已存在"
@@ -114,7 +114,6 @@ class CategoryManageViewModel @Inject constructor(
                 categoryRepository.addCategory(
                     name = name,
                     parentId = parentId,
-                    icon = icon,
                     isDefault = false,
                     flowSign = _uiState.value.selectedTab
                 )

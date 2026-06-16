@@ -28,8 +28,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,7 +41,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -65,6 +62,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.Category
 import com.wyd.mypurse.domain.repository.FlowType
+import com.wyd.mypurse.ui.components.ChineseDatePickerDialog
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -224,27 +222,31 @@ fun AddTransactionScreen(
         )
     }
 
-    // 日期选择器
+    // 日期选择器（不限年份，不标"今天"）
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = uiState.date)
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { viewModel.onDateChanged(it) }
-                    showDatePicker = false
-                }) {
-                    Text("确定")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("取消")
-                }
-            }
-        ) {
-            DatePicker(state = datePickerState)
+        val cal = remember(uiState.date) {
+            java.util.Calendar.getInstance().apply { timeInMillis = uiState.date }
         }
+        val initialYear = cal.get(java.util.Calendar.YEAR)
+        val initialMonth = cal.get(java.util.Calendar.MONTH) + 1
+        val initialDay = cal.get(java.util.Calendar.DAY_OF_MONTH)
+
+        ChineseDatePickerDialog(
+            initialYear = initialYear,
+            initialMonth = initialMonth,
+            initialDay = initialDay,
+            yearList = null,  // 不限制年份
+            todayYear = null,  // 不标今天
+            onSelected = { year, month, day ->
+                val timestamp = java.util.Calendar.getInstance().apply {
+                    set(year, month - 1, day, 12, 0, 0)
+                    set(java.util.Calendar.MILLISECOND, 0)
+                }.timeInMillis
+                viewModel.onDateChanged(timestamp)
+                showDatePicker = false
+            },
+            onDismiss = { showDatePicker = false }
+        )
     }
 }
 

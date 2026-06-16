@@ -15,11 +15,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -42,14 +44,20 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -63,6 +71,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -70,6 +79,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.CategoryAmount
 import com.wyd.mypurse.domain.model.TrendPoint
 import com.wyd.mypurse.domain.usecase.GetStatisticsUseCase.Granularity
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.DecimalFormat
@@ -1110,7 +1121,9 @@ private fun BottomToolbar(
     }
 }
 
-// ========== 时间选择弹窗 ==========
+// ========== 时间选择弹窗（底部 Sheet 样式） ==========
+
+private val SheetBg = Color(0xFFF5F5F5)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1128,439 +1141,206 @@ private fun TimePickerDialog(
     val curMonth = cal.get(Calendar.MONTH) + 1
     val curDay = cal.get(Calendar.DAY_OF_MONTH)
 
-    // 年份列表：最多显示最近10年
     val years = remember(availableYears, curYear) {
         val set = (availableYears + curYear).toMutableSet()
         set.sortedDescending().take(10)
     }
 
     when (granularity) {
-        Granularity.YEAR -> {
-            AlertDialog(
-                onDismissRequest = onDismiss,
-                title = null,
-                text = {
-                    LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                        items(years) { year ->
-                            val isSelected = year == curYear
-                            Text(
-                                text = "${year}年",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        val ts = Calendar.getInstance().apply {
-                                            set(Calendar.YEAR, year)
-                                            set(Calendar.MONTH, Calendar.JANUARY)
-                                            set(Calendar.DAY_OF_MONTH, 1)
-                                            set(Calendar.HOUR_OF_DAY, 0)
-                                            set(Calendar.MINUTE, 0)
-                                            set(Calendar.SECOND, 0)
-                                            set(Calendar.MILLISECOND, 0)
-                                        }.timeInMillis
-                                        onSelect(ts)
-                                    }
-                                    .background(
-                                        if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                        else Color.Transparent
-                                    )
-                                    .padding(vertical = 12.dp, horizontal = 16.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                         else Color(0xFF333333),
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                textAlign = TextAlign.Center
-                            )
-                        }
-                    }
-                },
-                confirmButton = {
+        Granularity.YEAR -> YearSheet(
+            years = years,
+            curYear = curYear,
+            onSelect = onSelect,
+            onDismiss = onDismiss
+        )
+        Granularity.MONTH -> YearMonthSheet(
+            currentYear = curYear,
+            currentMonth = curMonth,
+            years = years,
+            onSelected = { year, month ->
+                onSelect(makeTs(year, month, 1))
+            },
+            onDismiss = onDismiss
+        )
+        Granularity.DAY -> CalendarSheet(
+            currentYear = curYear,
+            currentMonth = curMonth,
+            currentDay = curDay,
+            years = years,
+            weekMode = false,
+            onSelected = { year, month, day ->
+                onSelect(makeTs(year, month, day))
+            },
+            onDismiss = onDismiss
+        )
+        Granularity.WEEK -> CalendarSheet(
+            currentYear = curYear,
+            currentMonth = curMonth,
+            currentDay = curDay,
+            years = years,
+            weekMode = true,
+            onSelected = { year, month, day ->
+                onSelect(makeTs(year, month, day))
+            },
+            onDismiss = onDismiss
+        )
+        Granularity.QUARTER -> QuarterSheet(
+            currentYear = curYear,
+            currentMonth = curMonth,
+            years = years,
+            onSelected = { year, quarter ->
+                onSelect(makeTs(year, (quarter - 1) * 3 + 1, 1))
+            },
+            onDismiss = onDismiss
+        )
+    }
+}
+
+private fun makeTs(year: Int, month: Int, day: Int): Long {
+    return Calendar.getInstance().apply {
+        set(Calendar.YEAR, year)
+        set(Calendar.MONTH, month - 1)
+        set(Calendar.DAY_OF_MONTH, day)
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+}
+
+// ========== 年模式：底部 Sheet 年份列表 ==========
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun YearSheet(
+    years: List<Int>,
+    curYear: Int,
+    onSelect: (Long) -> Unit,
+    onDismiss: () -> Unit
+) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = SheetBg,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    ) {
+        Column(modifier = Modifier.navigationBarsPadding()) {
+            Text(
+                "选择年份",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF333333),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                textAlign = TextAlign.Center
+            )
+            HorizontalDivider(color = Color(0xFFE0E0E0))
+            LazyColumn(modifier = Modifier.heightIn(max = 350.dp)) {
+                items(years) { year ->
+                    val isSelected = year == curYear
                     Text(
-                        text = "取消", color = Color.Gray,
-                        modifier = Modifier.clickable(onClick = onDismiss).padding(horizontal = 12.dp, vertical = 8.dp)
+                        text = "${year}年",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                onSelect(makeTs(year, 1, 1))
+                            }
+                            .background(
+                                if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                                else Color.Transparent
+                            )
+                            .padding(vertical = 14.dp, horizontal = 20.dp),
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                        else Color(0xFF333333),
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                        textAlign = TextAlign.Center,
+                        fontSize = 16.sp
                     )
                 }
-            )
-        }
-        Granularity.MONTH -> {
-            YearMonthPickerForTrend(
-                currentYear = curYear,
-                currentMonth = curMonth,
-                availableYears = availableYears,
-                onSelected = { year, month ->
-                    val ts = Calendar.getInstance().apply {
-                        set(Calendar.YEAR, year)
-                        set(Calendar.MONTH, month - 1)
-                        set(Calendar.DAY_OF_MONTH, 1)
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }.timeInMillis
-                    onSelect(ts)
-                },
-                onDismiss = onDismiss
-            )
-        }
-        Granularity.DAY -> {
-            DayPickerForTrend(
-                currentYear = curYear,
-                currentMonth = curMonth,
-                currentDay = curDay,
-                availableYears = availableYears,
-                onSelected = { year, month, day ->
-                    val ts = Calendar.getInstance().apply {
-                        set(Calendar.YEAR, year)
-                        set(Calendar.MONTH, month - 1)
-                        set(Calendar.DAY_OF_MONTH, day)
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }.timeInMillis
-                    onSelect(ts)
-                },
-                onDismiss = onDismiss
-            )
-        }
-        Granularity.WEEK -> {
-            WeekPickerForTrend(
-                currentYear = curYear,
-                currentMonth = curMonth,
-                currentDay = curDay,
-                availableYears = availableYears,
-                onSelected = { year, month, day ->
-                    val ts = Calendar.getInstance().apply {
-                        set(Calendar.YEAR, year)
-                        set(Calendar.MONTH, month - 1)
-                        set(Calendar.DAY_OF_MONTH, day)
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }.timeInMillis
-                    onSelect(ts)
-                },
-                onDismiss = onDismiss
-            )
-        }
-        Granularity.QUARTER -> {
-            QuarterPickerForTrend(
-                currentYear = curYear,
-                currentMonth = curMonth,
-                availableYears = availableYears,
-                onSelected = { year, quarter ->
-                    val ts = Calendar.getInstance().apply {
-                        set(Calendar.YEAR, year)
-                        set(Calendar.MONTH, (quarter - 1) * 3)
-                        set(Calendar.DAY_OF_MONTH, 1)
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
-                    }.timeInMillis
-                    onSelect(ts)
-                },
-                onDismiss = onDismiss
-            )
+            }
         }
     }
 }
 
-/** 趋势页专用：月份两步选择器（先选年再选月） */
+// ========== 月模式：底部 Sheet 双列滚轮（年 | 月） ==========
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun YearMonthPickerForTrend(
+private fun YearMonthSheet(
     currentYear: Int,
     currentMonth: Int,
-    availableYears: List<Int>,
+    years: List<Int>,
     onSelected: (Int, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
     var selectedYear by remember { mutableStateOf(currentYear) }
-    var showYearList by remember { mutableStateOf(false) }
-
-    val years = remember(availableYears, currentYear) {
-        val set = (availableYears + currentYear).toMutableSet()
-        set.sortedDescending()
-    }
-
-    if (showYearList) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = null,
-            text = {
-                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
-                    items(years) { year ->
-                        val isSelected = year == selectedYear
-                        Text(
-                            text = "${year}年",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedYear = year; showYearList = false }
-                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                                .padding(vertical = 12.dp, horizontal = 16.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF333333),
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Text("取消", color = Color.Gray,
-                    modifier = Modifier.clickable { showYearList = false }.padding(horizontal = 12.dp, vertical = 8.dp))
-            }
-        )
-    } else {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("${selectedYear}年", color = ChartBlue, fontWeight = FontWeight.Medium,
-                        modifier = Modifier.clickable { showYearList = true })
-                }
-            },
-            text = {
-                Column {
-                    val months = listOf("1月", "2月", "3月", "4月", "5月", "6月",
-                                        "7月", "8月", "9月", "10月", "11月", "12月")
-                    for (row in 0..2) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            for (col in 0..3) {
-                                val monthIdx = row * 4 + col
-                                val month = monthIdx + 1
-                                val isSelected = selectedYear == currentYear && month == currentMonth
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(4.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(
-                                            if (isSelected) ChartBlue
-                                            else MaterialTheme.colorScheme.surfaceVariant
-                                        )
-                                        .clickable { onSelected(selectedYear, month) }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        months[monthIdx],
-                                        color = if (isSelected) Color.White
-                                                else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Text("取消", color = Color.Gray,
-                    modifier = Modifier.clickable(onClick = onDismiss).padding(horizontal = 12.dp, vertical = 8.dp))
-            }
-        )
-    }
-}
-
-// ========== 趋势页：日选择器（年 → 月 → 日历） ==========
-
-@Composable
-private fun DayPickerForTrend(
-    currentYear: Int,
-    currentMonth: Int,
-    currentDay: Int,
-    availableYears: List<Int>,
-    onSelected: (Int, Int, Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var selectedYear by remember { mutableStateOf(currentYear) }
     var selectedMonth by remember { mutableStateOf(currentMonth) }
-    var selectedDay by remember { mutableStateOf(currentDay) }
-    var showYearPicker by remember { mutableStateOf(false) }
-    var showMonthPicker by remember { mutableStateOf(false) }
 
-    val years = remember(availableYears, currentYear) {
-        val set = (availableYears + currentYear).toMutableSet()
-        set.sortedDescending().take(10)
-    }
-
-    val daysInMonth = remember(selectedYear, selectedMonth) {
-        val cal = Calendar.getInstance().apply {
-            set(selectedYear, selectedMonth - 1, 1)
-        }
-        Pair(cal.get(Calendar.DAY_OF_WEEK), cal.getActualMaximum(Calendar.DAY_OF_MONTH))
-    }
-    val (firstDayOfWeek, totalDays) = daysInMonth
-
-    // 年份选择弹窗
-    if (showYearPicker) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = null,
-            text = {
-                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
-                    items(years) { year ->
-                        val isSelected = year == selectedYear
-                        Text(
-                            text = "${year}年",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedYear = year; showYearPicker = false }
-                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                                .padding(vertical = 12.dp, horizontal = 16.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF333333),
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Text("取消", color = Color.Gray,
-                    modifier = Modifier.clickable { showYearPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
-            }
-        )
-        return
-    }
-
-    // 月份选择弹窗
-    if (showMonthPicker) {
-        val months = listOf("1月", "2月", "3月", "4月", "5月", "6月",
-                            "7月", "8月", "9月", "10月", "11月", "12月")
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = null,
-            text = {
-                Column {
-                    for (row in 0..2) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            for (col in 0..3) {
-                                val monthIdx = row * 4 + col
-                                val month = monthIdx + 1
-                                val isSelected = selectedYear == currentYear && month == currentMonth
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(4.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) ChartBlue else MaterialTheme.colorScheme.surfaceVariant)
-                                        .clickable { selectedMonth = month; showMonthPicker = false }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(months[monthIdx],
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 14.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Text("取消", color = Color.Gray,
-                    modifier = Modifier.clickable { showMonthPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
-            }
-        )
-        return
-    }
-
-    // 日历主界面
-    AlertDialog(
+    androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = null,
-        text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                // 年月导航行
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = {
-                        if (selectedMonth == 1) { selectedYear--; selectedMonth = 12 }
-                        else selectedMonth--
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "上月")
-                    }
-                    Text(
-                        "${selectedYear}年",
-                        fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ChartBlue,
-                        modifier = Modifier.clickable { showYearPicker = true }.padding(horizontal = 4.dp)
-                    )
-                    Text(
-                        "${selectedMonth}月",
-                        fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ChartBlue,
-                        modifier = Modifier.clickable { showMonthPicker = true }.padding(horizontal = 4.dp)
-                    )
-                    IconButton(onClick = {
-                        if (selectedMonth == 12) { selectedYear++; selectedMonth = 1 }
-                        else selectedMonth++
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "下月")
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                // 星期头
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    listOf("日", "一", "二", "三", "四", "五", "六").forEach {
-                        Text(it, fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-                    }
-                }
-
-                // 日期网格
-                var dayCounter = 1
-                for (row in 0..5) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        for (col in 0..6) {
-                            val cellIndex = row * 7 + col
-                            if (row == 0 && col < firstDayOfWeek - 1 || dayCounter > totalDays) {
-                                Spacer(Modifier.weight(1f))
-                            } else {
-                                val day = dayCounter
-                                val isToday = selectedYear == currentYear && selectedMonth == currentMonth && day == currentDay
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(2.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(if (isToday) ChartBlue else Color.Transparent)
-                                        .clickable { selectedDay = day; onSelected(selectedYear, selectedMonth, day) }
-                                        .padding(vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("$day",
-                                        fontSize = 13.sp,
-                                        color = when {
-                                            isToday -> Color.White
-                                            col == 0 || col == 6 -> ExpenseRed
-                                            else -> Color(0xFF333333)
-                                        },
-                                        fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal)
-                                }
-                                dayCounter++
-                            }
-                        }
-                    }
+        containerColor = SheetBg,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+        ) {
+            Text(
+                "${selectedYear}年${selectedMonth}月",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = ChartBlue,
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(200.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                WheelPickerForStat(
+                    items = years,
+                    selectedIndex = years.indexOf(selectedYear).coerceAtLeast(0),
+                    displayText = { "${it}年" },
+                    onSelected = { selectedYear = it },
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(16.dp))
+                WheelPickerForStat(
+                    items = (1..12).toList(),
+                    selectedIndex = selectedMonth - 1,
+                    displayText = { "${it}月" },
+                    onSelected = { selectedMonth = it },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = Color(0xFFE0E0E0))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) { Text("取消", color = Color.Gray) }
+                TextButton(onClick = { onSelected(selectedYear, selectedMonth) }) {
+                    Text("确定", color = ChartBlue)
                 }
             }
-        },
-        confirmButton = {
-            Text("取消", color = Color.Gray,
-                modifier = Modifier.clickable(onClick = onDismiss).padding(horizontal = 12.dp, vertical = 8.dp))
         }
-    )
+    }
 }
 
-// ========== 趋势页：周选择器（日历形式，选日期后定位到该周周一） ==========
+// ========== 日/周模式：底部 Sheet 日历 ==========
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun WeekPickerForTrend(
+private fun CalendarSheet(
     currentYear: Int,
     currentMonth: Int,
     currentDay: Int,
-    availableYears: List<Int>,
+    years: List<Int>,
+    weekMode: Boolean,
     onSelected: (Int, Int, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1570,11 +1350,6 @@ private fun WeekPickerForTrend(
     var showYearPicker by remember { mutableStateOf(false) }
     var showMonthPicker by remember { mutableStateOf(false) }
 
-    val years = remember(availableYears, currentYear) {
-        val set = (availableYears + currentYear).toMutableSet()
-        set.sortedDescending().take(10)
-    }
-
     val daysInMonth = remember(selectedYear, selectedMonth) {
         val cal = Calendar.getInstance().apply {
             set(selectedYear, selectedMonth - 1, 1)
@@ -1583,202 +1358,215 @@ private fun WeekPickerForTrend(
     }
     val (firstDayOfWeek, totalDays) = daysInMonth
 
-    // 年份选择弹窗
-    if (showYearPicker) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = null,
-            text = {
-                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
-                    items(years) { year ->
-                        val isSelected = year == selectedYear
-                        Text(
-                            text = "${year}年",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedYear = year; showYearPicker = false }
-                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                                .padding(vertical = 12.dp, horizontal = 16.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF333333),
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Text("取消", color = Color.Gray,
-                    modifier = Modifier.clickable { showYearPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
-            }
-        )
-        return
-    }
-
-    // 月份选择弹窗
-    if (showMonthPicker) {
-        val months = listOf("1月", "2月", "3月", "4月", "5月", "6月",
-                            "7月", "8月", "9月", "10月", "11月", "12月")
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = null,
-            text = {
-                Column {
-                    for (row in 0..2) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            for (col in 0..3) {
-                                val monthIdx = row * 4 + col
-                                val month = monthIdx + 1
-                                val isSelected = selectedYear == currentYear && month == currentMonth
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(4.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (isSelected) ChartBlue else MaterialTheme.colorScheme.surfaceVariant)
-                                        .clickable { selectedMonth = month; showMonthPicker = false }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(months[monthIdx],
-                                        color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 14.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Text("取消", color = Color.Gray,
-                    modifier = Modifier.clickable { showMonthPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
-            }
-        )
-        return
-    }
-
-    // 日历主界面（与 DayPickerForTrend 相同，但点击日期后算出该日所在周的周一）
-    // 当前周所属的周一（用于高亮）
-    val currentMondayTs = remember(currentYear, currentMonth, currentDay) {
-        val cal = Calendar.getInstance().apply {
+    // 周模式：当前周一的 ts
+    val currentMondayTs = if (weekMode) remember(currentYear, currentMonth, currentDay) {
+        Calendar.getInstance().apply {
             set(currentYear, currentMonth - 1, currentDay)
             val dow = get(Calendar.DAY_OF_WEEK)
-            val offset = if (dow == Calendar.SUNDAY) -6 else Calendar.MONDAY - dow
-            add(Calendar.DAY_OF_MONTH, offset)
-        }
-        cal.timeInMillis
+            add(Calendar.DAY_OF_MONTH, if (dow == Calendar.SUNDAY) -6 else Calendar.MONDAY - dow)
+        }.timeInMillis
+    } else 0L
+
+    // 年份选择（内嵌弹出）
+    if (showYearPicker) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = null,
+            text = {
+                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
+                    items(years) { year ->
+                        val sel = year == selectedYear
+                        Text(
+                            text = "${year}年",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedYear = year; showYearPicker = false }
+                                .background(if (sel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                                .padding(vertical = 12.dp, horizontal = 16.dp),
+                            color = if (sel) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF333333),
+                            fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                Text("取消", color = Color.Gray,
+                    modifier = Modifier.clickable { showYearPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
+            }
+        )
+        return
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = null,
-        text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
-                // 年月导航行
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = {
-                        if (selectedMonth == 1) { selectedYear--; selectedMonth = 12 }
-                        else selectedMonth--
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "上月")
-                    }
-                    Text(
-                        "${selectedYear}年",
-                        fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ChartBlue,
-                        modifier = Modifier.clickable { showYearPicker = true }.padding(horizontal = 4.dp)
-                    )
-                    Text(
-                        "${selectedMonth}月",
-                        fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ChartBlue,
-                        modifier = Modifier.clickable { showMonthPicker = true }.padding(horizontal = 4.dp)
-                    )
-                    IconButton(onClick = {
-                        if (selectedMonth == 12) { selectedYear++; selectedMonth = 1 }
-                        else selectedMonth++
-                    }) {
-                        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "下月")
-                    }
-                }
-
-                Spacer(Modifier.height(8.dp))
-
-                // 星期头
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    listOf("一", "二", "三", "四", "五", "六", "日").forEach {
-                        Text(it, fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-                    }
-                }
-
-                // 日期网格（周一排第一列）
-                val startOffset = if (firstDayOfWeek == Calendar.SUNDAY) 6 else firstDayOfWeek - 2
-                var dayCounter = 1
-                for (row in 0..5) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        for (col in 0..6) {
-                            if (row == 0 && col < startOffset || dayCounter > totalDays) {
-                                Spacer(Modifier.weight(1f))
-                            } else {
-                                val day = dayCounter
-                                // 该日所在周的周一
-                                val thisDayMondayTs = Calendar.getInstance().apply {
-                                    set(selectedYear, selectedMonth - 1, day)
-                                    val dow = get(Calendar.DAY_OF_WEEK)
-                                    val offset = if (dow == Calendar.SUNDAY) -6 else Calendar.MONDAY - dow
-                                    add(Calendar.DAY_OF_MONTH, offset)
-                                }.timeInMillis
-                                val isInCurrentWeek = thisDayMondayTs == currentMondayTs
+    // 月份选择（内嵌弹出）
+    if (showMonthPicker) {
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = null,
+            text = {
+                Column {
+                    for (row in 0..2) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                            for (col in 0..3) {
+                                val m = row * 4 + col + 1
+                                val sel = selectedYear == currentYear && m == currentMonth
                                 Box(
                                     modifier = Modifier
-                                        .weight(1f)
-                                        .padding(2.dp)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(if (isInCurrentWeek) ChartBlue else Color.Transparent)
-                                        .clickable {
-                                            // 算出该日所在周的周一
+                                        .weight(1f).padding(4.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (sel) ChartBlue else MaterialTheme.colorScheme.surfaceVariant)
+                                        .clickable { selectedMonth = m; showMonthPicker = false }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text("${m}月",
+                                        color = if (sel) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        fontSize = 14.sp)
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Text("取消", color = Color.Gray,
+                    modifier = Modifier.clickable { showMonthPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
+            }
+        )
+        return
+    }
+
+    // 主日历 Sheet
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = SheetBg,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+        ) {
+            // 年月导航行
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = {
+                    if (selectedMonth == 1) { selectedYear--; selectedMonth = 12 }
+                    else selectedMonth--
+                }) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "上月")
+                }
+                Text(
+                    "${selectedYear}年",
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ChartBlue,
+                    modifier = Modifier.clickable { showYearPicker = true }.padding(horizontal = 4.dp)
+                )
+                Text(
+                    "${selectedMonth}月",
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ChartBlue,
+                    modifier = Modifier.clickable { showMonthPicker = true }.padding(horizontal = 4.dp)
+                )
+                IconButton(onClick = {
+                    if (selectedMonth == 12) { selectedYear++; selectedMonth = 1 }
+                    else selectedMonth++
+                }) {
+                    Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, "下月")
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // 星期头
+            val weekHeaders = if (weekMode) listOf("一", "二", "三", "四", "五", "六", "日")
+            else listOf("日", "一", "二", "三", "四", "五", "六")
+            Row(modifier = Modifier.fillMaxWidth()) {
+                weekHeaders.forEach {
+                    Text(it, fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f))
+                }
+            }
+
+            Spacer(Modifier.height(4.dp))
+
+            // 日期网格
+            val startOffset = if (weekMode) {
+                if (firstDayOfWeek == Calendar.SUNDAY) 6 else firstDayOfWeek - 2
+            } else {
+                firstDayOfWeek - 1
+            }
+            var dayCounter = 1
+            for (row in 0..5) {
+                Row(modifier = Modifier.fillMaxWidth()) {
+                    for (col in 0..6) {
+                        if (row == 0 && col < startOffset || dayCounter > totalDays) {
+                            Spacer(Modifier.weight(1f))
+                        } else {
+                            val day = dayCounter
+                            val isCurrent = selectedYear == currentYear &&
+                                    selectedMonth == currentMonth && day == currentDay
+                            val isInWeek = if (weekMode) {
+                                Calendar.getInstance().apply {
+                                    set(selectedYear, selectedMonth - 1, day)
+                                    val dow = get(Calendar.DAY_OF_WEEK)
+                                    add(Calendar.DAY_OF_MONTH, if (dow == Calendar.SUNDAY) -6 else Calendar.MONDAY - dow)
+                                }.timeInMillis == currentMondayTs
+                            } else false
+
+                            val highlight = if (weekMode) isInWeek else isCurrent
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(2.dp)
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(if (highlight) ChartBlue else Color.Transparent)
+                                    .clickable {
+                                        selectedDay = day
+                                        if (weekMode) {
                                             val monCal = Calendar.getInstance().apply {
                                                 set(selectedYear, selectedMonth - 1, day)
                                                 val dow = get(Calendar.DAY_OF_WEEK)
-                                                val offset = if (dow == Calendar.SUNDAY) -6 else Calendar.MONDAY - dow
-                                                add(Calendar.DAY_OF_MONTH, offset)
+                                                add(Calendar.DAY_OF_MONTH, if (dow == Calendar.SUNDAY) -6 else Calendar.MONDAY - dow)
                                             }
                                             onSelected(monCal.get(Calendar.YEAR), monCal.get(Calendar.MONTH) + 1, monCal.get(Calendar.DAY_OF_MONTH))
+                                        } else {
+                                            onSelected(selectedYear, selectedMonth, day)
                                         }
-                                        .padding(vertical = 6.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("$day",
-                                        fontSize = 13.sp,
-                                        color = when {
-                                            isInCurrentWeek -> Color.White
-                                            col == 5 || col == 6 -> ExpenseRed
-                                            else -> Color(0xFF333333)
-                                        },
-                                        fontWeight = if (isInCurrentWeek) FontWeight.Bold else FontWeight.Normal)
-                                }
-                                dayCounter++
+                                    }
+                                    .padding(vertical = 6.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("$day",
+                                    fontSize = 13.sp,
+                                    color = when {
+                                        highlight -> Color.White
+                                        !weekMode && (col == 0 || col == 6) -> ExpenseRed
+                                        weekMode && (col == 5 || col == 6) -> ExpenseRed
+                                        else -> Color(0xFF333333)
+                                    },
+                                    fontWeight = if (highlight) FontWeight.Bold else FontWeight.Normal)
                             }
+                            dayCounter++
                         }
                     }
                 }
+                if (dayCounter > totalDays) break
             }
-        },
-        confirmButton = {
-            Text("取消", color = Color.Gray,
-                modifier = Modifier.clickable(onClick = onDismiss).padding(horizontal = 12.dp, vertical = 8.dp))
         }
-    )
+    }
 }
 
-// ========== 趋势页：季度选择器（年 → Q1/Q2/Q3/Q4） ==========
+// ========== 季模式：底部 Sheet 年份 + Q1~Q4 ==========
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun QuarterPickerForTrend(
+private fun QuarterSheet(
     currentYear: Int,
     currentMonth: Int,
-    availableYears: List<Int>,
+    years: List<Int>,
     onSelected: (Int, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -1786,11 +1574,6 @@ private fun QuarterPickerForTrend(
     var showYearPicker by remember { mutableStateOf(false) }
     val currentQuarter = (currentMonth - 1) / 3 + 1
 
-    val years = remember(availableYears, currentYear) {
-        val set = (availableYears + currentYear).toMutableSet()
-        set.sortedDescending().take(10)
-    }
-
     if (showYearPicker) {
         AlertDialog(
             onDismissRequest = onDismiss,
@@ -1798,16 +1581,16 @@ private fun QuarterPickerForTrend(
             text = {
                 LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
                     items(years) { year ->
-                        val isSelected = year == selectedYear
+                        val sel = year == selectedYear
                         Text(
                             text = "${year}年",
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable { selectedYear = year; showYearPicker = false }
-                                .background(if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
+                                .background(if (sel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                                 .padding(vertical = 12.dp, horizontal = 16.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF333333),
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                            color = if (sel) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF333333),
+                            fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
                             textAlign = TextAlign.Center
                         )
                     }
@@ -1821,15 +1604,28 @@ private fun QuarterPickerForTrend(
         return
     }
 
-    AlertDialog(
+    androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            Text("${selectedYear}年", color = ChartBlue, fontWeight = FontWeight.Medium,
-                modifier = Modifier.clickable { showYearPicker = true })
-        },
-        text = {
+        containerColor = SheetBg,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+        ) {
+            Text(
+                "${selectedYear}年",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = ChartBlue,
+                modifier = Modifier
+                    .clickable { showYearPicker = true }
+                    .padding(horizontal = 12.dp, vertical = 12.dp)
+            )
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 for (q in 1..4) {
@@ -1837,7 +1633,7 @@ private fun QuarterPickerForTrend(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .padding(8.dp)
+                            .padding(6.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (isSelected) ChartBlue else MaterialTheme.colorScheme.surfaceVariant)
                             .clickable { onSelected(selectedYear, q) }
@@ -1845,16 +1641,11 @@ private fun QuarterPickerForTrend(
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("Q$q",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
+                            Text("Q$q", fontSize = 20.sp, fontWeight = FontWeight.Bold,
                                 color = if (isSelected) Color.White else Color(0xFF333333))
                             Text(
                                 when (q) {
-                                    1 -> "1-3月"
-                                    2 -> "4-6月"
-                                    3 -> "7-9月"
-                                    4 -> "10-12月"
+                                    1 -> "1-3月"; 2 -> "4-6月"; 3 -> "7-9月"; 4 -> "10-12月"
                                     else -> ""
                                 },
                                 fontSize = 11.sp,
@@ -1863,10 +1654,106 @@ private fun QuarterPickerForTrend(
                     }
                 }
             }
-        },
-        confirmButton = {
-            Text("取消", color = Color.Gray,
-                modifier = Modifier.clickable(onClick = onDismiss).padding(horizontal = 12.dp, vertical = 8.dp))
+            Spacer(Modifier.height(12.dp))
         }
+    }
+}
+
+// ========== 统计页专用滚轮 ==========
+
+@Composable
+private fun <T> WheelPickerForStat(
+    items: List<T>,
+    selectedIndex: Int,
+    displayText: (T) -> String,
+    onSelected: (T) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val itemHeightDp = 40.dp
+    val visibleItems = 5
+
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = (selectedIndex - visibleItems / 2).coerceAtLeast(0)
     )
+    val coroutineScope = rememberCoroutineScope()
+    var centerIndex by remember { mutableStateOf(selectedIndex) }
+
+    LaunchedEffect(listState) {
+        snapshotFlow {
+            listState.layoutInfo.visibleItemsInfo
+                .minByOrNull { kotlin.math.abs(it.offset + it.size / 2 - listState.layoutInfo.viewportEndOffset / 2) }
+                ?.index
+        }
+            .distinctUntilChanged()
+            .collect { idx ->
+                if (idx != null && idx in items.indices && idx != centerIndex) {
+                    centerIndex = idx
+                    onSelected(items[idx])
+                }
+            }
+    }
+
+    val highlightColor = ChartBlue.copy(alpha = 0.1f)
+
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth().height(itemHeightDp)
+                .align(Alignment.Center)
+                .clip(RoundedCornerShape(8.dp))
+                .background(highlightColor)
+        )
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxWidth().height(itemHeightDp * visibleItems),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            item { Spacer(Modifier.height(itemHeightDp * (visibleItems / 2))) }
+            items(items.size) { index ->
+                val item = items[index]
+                val isCenter = index == centerIndex
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth().height(itemHeightDp)
+                        .clickable {
+                            centerIndex = index
+                            onSelected(item)
+                            coroutineScope.launch { listState.animateScrollToItem(index) }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = displayText(item),
+                        fontSize = if (isCenter) 18.sp else 14.sp,
+                        fontWeight = if (isCenter) FontWeight.Bold else FontWeight.Normal,
+                        color = if (isCenter) ChartBlue else Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            item { Spacer(Modifier.height(itemHeightDp * (visibleItems / 2))) }
+        }
+        // 渐变遮罩
+        Box(
+            modifier = Modifier
+                .fillMaxWidth().height(itemHeightDp * (visibleItems / 2))
+                .align(Alignment.TopCenter)
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(SheetBg, SheetBg.copy(alpha = 0f))
+                    )
+                )
+        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth().height(itemHeightDp * (visibleItems / 2))
+                .align(Alignment.BottomCenter)
+                .background(
+                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = listOf(SheetBg.copy(alpha = 0f), SheetBg)
+                    )
+                )
+        )
+    }
 }
