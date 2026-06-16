@@ -57,6 +57,12 @@ sealed class Route {
         val templateId: Long = 0
     ) : Route()
 
+    /** 流水详情页 */
+    @Serializable
+    data class TransactionDetail(
+        val transactionId: Long
+    ) : Route()
+
     /** 关于页 */
     @Serializable
     data object About : Route()

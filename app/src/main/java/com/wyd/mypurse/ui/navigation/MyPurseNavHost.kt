@@ -34,6 +34,7 @@ import com.wyd.mypurse.ui.recurring.RecurringTemplateEditScreen
 import com.wyd.mypurse.ui.recurring.RecurringTemplateListScreen
 import com.wyd.mypurse.ui.settings.SettingsScreen
 import com.wyd.mypurse.ui.statistics.StatisticsScreen
+import com.wyd.mypurse.ui.transactionlist.TransactionDetailScreen
 import com.wyd.mypurse.ui.transactionlist.TransactionListScreen
 
 /**
@@ -67,6 +68,7 @@ fun MyPurseNavHost(
     val hideBottomBarRoutes = setOf(
         Route.AddTransaction::class,
         Route.TransactionList::class,
+        Route.TransactionDetail::class,
         Route.CategoryManage::class,
         Route.Budget::class,
         Route.RecurringTemplateList::class,
@@ -188,6 +190,18 @@ fun MyPurseNavHost(
                     categoryFilter = route.categoryFilter,
                     timeRangeStart = route.timeRangeStart,
                     timeRangeEnd = route.timeRangeEnd,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToEdit = { id ->
+                        navController.navigate(Route.TransactionDetail(transactionId = id))
+                    }
+                )
+            }
+
+            // 流水详情页
+            composable<Route.TransactionDetail> { backStackEntry ->
+                val route = backStackEntry.toRoute<Route.TransactionDetail>()
+                TransactionDetailScreen(
+                    transactionId = route.transactionId,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

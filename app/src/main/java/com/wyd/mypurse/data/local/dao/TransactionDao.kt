@@ -32,6 +32,82 @@ interface TransactionDao {
     @Query("DELETE FROM `transaction` WHERE id = :id")
     suspend fun deleteTransaction(id: Long)
 
+    // ========== 流水列表查询 ==========
+
+    /**
+     * 按时间范围获取交易列表（Flow，支持分页）。
+     */
+    @Query("""
+        SELECT * FROM `transaction`
+        WHERE date BETWEEN :rangeStart AND :rangeEnd
+        ORDER BY date DESC, create_time DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    fun getTransactionsByRange(
+        rangeStart: Long,
+        rangeEnd: Long,
+        limit: Int,
+        offset: Int
+    ): Flow<List<TransactionEntity>>
+
+    /**
+     * 按时间范围 + 分类筛选获取交易列表。
+     */
+    @Query("""
+        SELECT * FROM `transaction`
+        WHERE date BETWEEN :rangeStart AND :rangeEnd
+          AND category_l1 = :categoryFilter
+        ORDER BY date DESC, create_time DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    fun getTransactionsByRangeAndCategory(
+        rangeStart: Long,
+        rangeEnd: Long,
+        categoryFilter: String,
+        limit: Int,
+        offset: Int
+    ): Flow<List<TransactionEntity>>
+
+    /**
+     * 搜索交易记录（匹配备注、分类名、金额）。
+     */
+    @Query("""
+        SELECT * FROM `transaction`
+        WHERE note LIKE '%' || :keyword || '%'
+           OR category_l1 LIKE '%' || :keyword || '%'
+           OR category_l2 LIKE '%' || :keyword || '%'
+           OR CAST(amount AS TEXT) LIKE '%' || :keyword || '%'
+        ORDER BY date DESC, create_time DESC
+        LIMIT :limit OFFSET :offset
+    """)
+    fun searchTransactions(
+        keyword: String,
+        limit: Int,
+        offset: Int
+    ): Flow<List<TransactionEntity>>
+
+    /**
+     * 获取指定月份的交易数量（用于分页判断）。
+     */
+    @Query("""
+        SELECT COUNT(*) FROM `transaction`
+        WHERE date BETWEEN :rangeStart AND :rangeEnd
+    """)
+    suspend fun getTransactionCountByRange(rangeStart: Long, rangeEnd: Long): Int
+
+    /**
+     * 获取指定月份各天是否有交易记录（用于日历标记）。
+     */
+    @Query("""
+        SELECT DISTINCT 
+            CAST(strftime('%Y', date / 1000, 'unixepoch') AS INTEGER) AS year,
+            CAST(strftime('%m', date / 1000, 'unixepoch') AS INTEGER) AS month,
+            CAST(strftime('%d', date / 1000, 'unixepoch') AS INTEGER) AS day
+        FROM `transaction`
+        WHERE date BETWEEN :rangeStart AND :rangeEnd
+    """)
+    suspend fun getActiveDaysInRange(rangeStart: Long, rangeEnd: Long): List<ActiveDay>
+
     // ========== 聚合查询 ==========
 
     /**
@@ -112,5 +188,14 @@ interface TransactionDao {
 data class DaySummaryTuple(
     val expense: BigDecimal,
     val income: BigDecimal
+)
+
+/**
+ * 活跃日期（有交易记录的日期）。
+ */
+data class ActiveDay(
+    val year: Int,
+    val month: Int,
+    val day: Int
 )
 

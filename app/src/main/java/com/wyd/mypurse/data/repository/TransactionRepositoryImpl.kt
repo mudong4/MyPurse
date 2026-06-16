@@ -7,6 +7,7 @@ import com.wyd.mypurse.data.local.entity.TransactionEntity
 import com.wyd.mypurse.domain.model.CategoryAmount
 import com.wyd.mypurse.domain.model.MonthlyAmount
 import com.wyd.mypurse.domain.model.PeriodSummary
+import com.wyd.mypurse.domain.model.Transaction
 import com.wyd.mypurse.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -124,6 +125,48 @@ class TransactionRepositoryImpl @Inject constructor(
         return transactionDao.insertTransaction(entity)
     }
 
+    // ========== 流水列表 ==========
+
+    override fun getTransactionsByRange(
+        rangeStart: Long,
+        rangeEnd: Long,
+        categoryFilter: String?,
+        limit: Int,
+        offset: Int
+    ): Flow<List<Transaction>> {
+        val flow = if (categoryFilter != null) {
+            transactionDao.getTransactionsByRangeAndCategory(
+                rangeStart, rangeEnd, categoryFilter, limit, offset
+            )
+        } else {
+            transactionDao.getTransactionsByRange(
+                rangeStart, rangeEnd, limit, offset
+            )
+        }
+        return flow.map { list -> list.map { it.toDomain() } }
+    }
+
+    override fun searchTransactions(
+        keyword: String,
+        limit: Int,
+        offset: Int
+    ): Flow<List<Transaction>> {
+        return transactionDao.searchTransactions(keyword, limit, offset)
+            .map { list -> list.map { it.toDomain() } }
+    }
+
+    override suspend fun getTransactionById(id: Long): Transaction? {
+        return transactionDao.getTransactionById(id)?.toDomain()
+    }
+
+    override suspend fun updateTransaction(transaction: Transaction) {
+        transactionDao.updateTransaction(transaction.toEntity())
+    }
+
+    override suspend fun deleteTransaction(id: Long) {
+        transactionDao.deleteTransaction(id)
+    }
+
     // ========== 时间工具 ==========
 
     private fun getDayStart(cal: Calendar): Long {
@@ -142,3 +185,35 @@ class TransactionRepositoryImpl @Inject constructor(
         return cal.timeInMillis
     }
 }
+
+// ========== Entity ↔ Domain 映射 ==========
+
+private fun TransactionEntity.toDomain() = Transaction(
+    id = id,
+    flowType = flowType,
+    categoryL1Id = categoryL1Id,
+    categoryL2Id = categoryL2Id,
+    categoryL1 = categoryL1,
+    categoryL2 = categoryL2,
+    amount = amount,
+    note = note,
+    date = date,
+    createTime = createTime,
+    ledgerId = ledgerId,
+    recurringTemplateId = recurringTemplateId
+)
+
+private fun Transaction.toEntity() = TransactionEntity(
+    id = id,
+    flowType = flowType,
+    categoryL1Id = categoryL1Id,
+    categoryL2Id = categoryL2Id,
+    categoryL1 = categoryL1,
+    categoryL2 = categoryL2,
+    amount = amount,
+    note = note,
+    date = date,
+    createTime = createTime,
+    ledgerId = ledgerId,
+    recurringTemplateId = recurringTemplateId
+)

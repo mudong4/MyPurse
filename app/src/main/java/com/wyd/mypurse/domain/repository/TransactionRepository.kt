@@ -3,6 +3,7 @@ package com.wyd.mypurse.domain.repository
 import com.wyd.mypurse.domain.model.CategoryAmount
 import com.wyd.mypurse.domain.model.MonthlyAmount
 import com.wyd.mypurse.domain.model.PeriodSummary
+import com.wyd.mypurse.domain.model.Transaction
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
 
@@ -64,4 +65,41 @@ interface TransactionRepository {
         note: String?,
         date: Long
     ): Long
+
+    // ========== 流水列表 ==========
+
+    /**
+     * 按时间范围和可选分类筛选获取交易列表（Flow）。
+     */
+    fun getTransactionsByRange(
+        rangeStart: Long,
+        rangeEnd: Long,
+        categoryFilter: String?,
+        limit: Int,
+        offset: Int
+    ): Flow<List<Transaction>>
+
+    /**
+     * 搜索交易记录。
+     */
+    fun searchTransactions(
+        keyword: String,
+        limit: Int,
+        offset: Int
+    ): Flow<List<Transaction>>
+
+    /**
+     * 根据 ID 获取单条交易记录。
+     */
+    suspend fun getTransactionById(id: Long): Transaction?
+
+    /**
+     * 更新交易记录。
+     */
+    suspend fun updateTransaction(transaction: Transaction)
+
+    /**
+     * 删除交易记录。
+     */
+    suspend fun deleteTransaction(id: Long)
 }
