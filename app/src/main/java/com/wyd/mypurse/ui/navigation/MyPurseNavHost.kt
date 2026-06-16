@@ -74,6 +74,7 @@ fun MyPurseNavHost(
         Route.RecurringTemplateList::class,
         Route.RecurringTemplateEdit::class,
         Route.About::class,
+        Route.Statistics::class,
     )
 
     val showBottomBar = hideBottomBarRoutes.none { routeClass ->
@@ -134,9 +135,10 @@ fun MyPurseNavHost(
                 )
             }
 
-            // 统计 Tab
+            // 统计页（隐藏底部导航栏）
             composable<Route.Statistics> {
                 StatisticsScreen(
+                    onNavigateBack = { navController.popBackStack() },
                     onNavigateToTransactionList = { granularity, category ->
                         navController.navigate(
                             Route.TransactionList(

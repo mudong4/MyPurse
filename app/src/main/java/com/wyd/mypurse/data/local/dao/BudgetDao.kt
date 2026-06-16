@@ -1,26 +1,33 @@
 package com.wyd.mypurse.data.local.dao
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import androidx.room.Update
 import com.wyd.mypurse.data.local.entity.BudgetEntity
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
 
 /**
- * 预算数据访问对象。阶段 3 完整实现，阶段 1 建基础结构。
+ * 预算数据访问对象。极简方案：仅操作一条记录（id=1）。
  */
 @Dao
 interface BudgetDao {
 
+    /** 插入或更新预算（id=1 唯一，冲突时覆盖） */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertOrUpdateBudget(budget: BudgetEntity)
+    suspend fun upsertBudget(budget: BudgetEntity)
 
-    @Query("SELECT * FROM budget WHERE year = :year AND month = :month")
-    suspend fun getBudget(year: Int, month: Int): BudgetEntity?
+    /** 获取当前预算，null 表示从未设置 */
+    @Query("SELECT * FROM budget WHERE id = 1")
+    suspend fun getBudget(): BudgetEntity?
 
-    @Query("SELECT * FROM budget ORDER BY year DESC, month DESC")
-    fun getAllBudgets(): Flow<List<BudgetEntity>>
+    /** 监听预算变化（用于首页实时更新） */
+    @Query("SELECT * FROM budget WHERE id = 1")
+    fun observeBudget(): Flow<BudgetEntity?>
+
+    /** 删除预算记录（取消预算） */
+    @Delete
+    suspend fun deleteBudget(budget: BudgetEntity)
 }

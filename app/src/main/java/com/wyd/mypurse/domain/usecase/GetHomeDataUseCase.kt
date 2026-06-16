@@ -36,7 +36,7 @@ class GetHomeDataUseCase @Inject constructor(
     )
 
     /**
-     * 获取首页组合数据流。余额和趋势为 Flow 持续监听，其他数据为一次性加载。
+     * 获取首页组合数据流。余额、趋势、预算为 Flow 持续监听，其他数据为一次性加载。
      */
     operator fun invoke(): Flow<HomeSnapshot> {
         val now = System.currentTimeMillis()
@@ -44,9 +44,10 @@ class GetHomeDataUseCase @Inject constructor(
 
         return combine(
             repository.getBalance(),
-            repository.getRecentMonthsExpenseTrend(6)
-        ) { balance, trend ->
-            // 每次余额或趋势变化时，重新拉取时间窗口汇总
+            repository.getRecentMonthsExpenseTrend(6),
+            repository.observeBudget()
+        ) { balance, trend, budget ->
+            // 每次余额、趋势或预算变化时，重新拉取时间窗口汇总
             val year = cal.get(Calendar.YEAR)
             val month = cal.get(Calendar.MONTH) + 1
 
@@ -58,7 +59,7 @@ class GetHomeDataUseCase @Inject constructor(
                 thisYear = repository.getYearlySummary(year),
                 trend = trend,
                 topCategories = repository.getTopCategoriesByMonth(year, month, 5),
-                budget = repository.getBudget(year, month),
+                budget = budget,
                 isLoading = false
             )
         }

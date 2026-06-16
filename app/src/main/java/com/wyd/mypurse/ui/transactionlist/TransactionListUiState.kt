@@ -83,6 +83,8 @@ data class TransactionListUiState(
 
     // 日历选择器
     val showDatePicker: Boolean = false,
+    // 数据库中实际有数据的年份（降序），供年份/月份选择器使用
+    val availableYears: List<Int> = emptyList(),
 
     val errorMessage: String? = null
 )

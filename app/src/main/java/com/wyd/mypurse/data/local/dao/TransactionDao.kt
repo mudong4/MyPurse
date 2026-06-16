@@ -32,6 +32,14 @@ interface TransactionDao {
     @Query("DELETE FROM `transaction` WHERE id = :id")
     suspend fun deleteTransaction(id: Long)
 
+    /** 删除指定一级分类的所有流水记录 */
+    @Query("DELETE FROM `transaction` WHERE category_l1_id = :categoryId")
+    suspend fun deleteTransactionsByCategoryL1Id(categoryId: Long)
+
+    /** 删除指定二级分类的所有流水记录 */
+    @Query("DELETE FROM `transaction` WHERE category_l2_id = :categoryId")
+    suspend fun deleteTransactionsByCategoryL2Id(categoryId: Long)
+
     // ========== 流水列表查询 ==========
 
     /**
@@ -180,6 +188,141 @@ interface TransactionDao {
         LIMIT :limit
     """)
     suspend fun getTopCategoriesByMonth(year: Int, month: Int, limit: Int): List<CategoryAmountEntity>
+
+    // ========== 统计页聚合查询 ==========
+
+    /**
+     * 按时间范围和流水类型汇总各一级分类金额（构成分析）。
+     */
+    @Query("""
+        SELECT 
+            category_l1_id AS categoryL1Id,
+            category_l1 AS categoryL1,
+            SUM(amount) AS total
+        FROM `transaction`
+        WHERE date BETWEEN :rangeStart AND :rangeEnd
+          AND (:flowType IS NULL OR flow_type = :flowType)
+        GROUP BY category_l1_id, category_l1
+        ORDER BY total DESC
+    """)
+    suspend fun getCategoryComposition(
+        rangeStart: Long,
+        rangeEnd: Long,
+        flowType: String?
+    ): List<CategoryAmountEntity>
+
+    /**
+     * 按时间范围和一级分类汇总二级分类金额（构成分析 - 展开二级）。
+     */
+    @Query("""
+        SELECT 
+            category_l2 AS categoryL1,
+            SUM(amount) AS total
+        FROM `transaction`
+        WHERE date BETWEEN :rangeStart AND :rangeEnd
+          AND (:flowType IS NULL OR flow_type = :flowType)
+          AND category_l1_id = :categoryL1Id
+          AND category_l2 IS NOT NULL
+        GROUP BY category_l2
+        ORDER BY total DESC
+    """)
+    suspend fun getSubCategoryComposition(
+        rangeStart: Long,
+        rangeEnd: Long,
+        flowType: String?,
+        categoryL1Id: Long
+    ): List<CategoryAmountEntity>
+
+    /**
+     * 按日分组趋势（过去 N 天每天支出合计）。
+     */
+    @Query("""
+        SELECT 
+            strftime('%Y-%m-%d', date / 1000, 'unixepoch') AS label,
+            SUM(amount) AS total
+        FROM `transaction`
+        WHERE flow_type = '支出' AND date BETWEEN :rangeStart AND :rangeEnd
+        GROUP BY label
+        ORDER BY label
+    """)
+    suspend fun getDailyExpenseTrend(rangeStart: Long, rangeEnd: Long): List<TrendTuple>
+
+    /**
+     * 按周分组趋势（过去 N 周每周支出合计）。
+     */
+    @Query("""
+        SELECT 
+            strftime('%Y', date / 1000, 'unixepoch') || '-W' ||
+            CASE 
+                WHEN CAST(strftime('%W', date / 1000, 'unixepoch') AS INTEGER) < 10 
+                THEN '0' || strftime('%W', date / 1000, 'unixepoch')
+                ELSE strftime('%W', date / 1000, 'unixepoch')
+            END AS label,
+            SUM(amount) AS total
+        FROM `transaction`
+        WHERE flow_type = '支出' AND date BETWEEN :rangeStart AND :rangeEnd
+        GROUP BY label
+        ORDER BY label
+    """)
+    suspend fun getWeeklyExpenseTrend(rangeStart: Long, rangeEnd: Long): List<TrendTuple>
+
+    /**
+     * 按季度分组趋势。
+     */
+    @Query("""
+        SELECT 
+            strftime('%Y', date / 1000, 'unixepoch') || '-Q' ||
+            CAST((CAST(strftime('%m', date / 1000, 'unixepoch') AS INTEGER) + 2) / 3 AS TEXT) AS label,
+            SUM(amount) AS total
+        FROM `transaction`
+        WHERE flow_type = '支出' AND date BETWEEN :rangeStart AND :rangeEnd
+        GROUP BY label
+        ORDER BY label
+    """)
+    suspend fun getQuarterlyExpenseTrend(rangeStart: Long, rangeEnd: Long): List<TrendTuple>
+
+    /**
+     * 按年分组趋势。
+     */
+    @Query("""
+        SELECT 
+            CAST(strftime('%Y', date / 1000, 'unixepoch') AS INTEGER) || '' AS label,
+            SUM(amount) AS total
+        FROM `transaction`
+        WHERE flow_type = '支出'
+        GROUP BY label
+        ORDER BY label
+    """)
+    suspend fun getYearlyExpenseTrend(): List<TrendTuple>
+
+    /**
+     * 按月分组趋势（一次性查询版本，供统计页使用）。
+     */
+    @Query("""
+        SELECT 
+            CAST(strftime('%Y', date / 1000, 'unixepoch') AS INTEGER) || '-' ||
+            CASE 
+                WHEN CAST(strftime('%m', date / 1000, 'unixepoch') AS INTEGER) < 10 
+                THEN '0' || strftime('%m', date / 1000, 'unixepoch')
+                ELSE strftime('%m', date / 1000, 'unixepoch')
+            END AS label,
+            SUM(amount) AS total
+        FROM `transaction`
+        WHERE flow_type = '支出' AND date BETWEEN :rangeStart AND :rangeEnd
+        GROUP BY label
+        ORDER BY label
+    """)
+    suspend fun getMonthlyExpenseTrendOnce(rangeStart: Long, rangeEnd: Long): List<TrendTuple>
+
+    /**
+     * 获取数据库中所有有交易记录的年份（降序）。
+     */
+    @Query("""
+        SELECT DISTINCT CAST(strftime('%Y', date / 1000, 'unixepoch') AS INTEGER) AS year
+        FROM `transaction`
+        ORDER BY year DESC
+    """)
+    suspend fun getAvailableYears(): List<Int>
 }
 
 /**
@@ -197,5 +340,13 @@ data class ActiveDay(
     val year: Int,
     val month: Int,
     val day: Int
+)
+
+/**
+ * 趋势查询中间结果（标签 + 金额）。label 格式因粒度而异（YYYY-MM-DD / YYYY-Www / YYYY-Qn / YYYY）。
+ */
+data class TrendTuple(
+    val label: String,
+    val total: BigDecimal
 )
 

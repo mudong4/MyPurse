@@ -1,6 +1,7 @@
 package com.wyd.mypurse.data.repository
 
 import com.wyd.mypurse.data.local.dao.CategoryDefDao
+import com.wyd.mypurse.data.local.dao.TransactionDao
 import com.wyd.mypurse.data.local.entity.CategoryDefEntity
 import com.wyd.mypurse.domain.model.Category
 import com.wyd.mypurse.domain.repository.CategoryRepository
@@ -14,7 +15,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class CategoryRepositoryImpl @Inject constructor(
-    private val categoryDefDao: CategoryDefDao
+    private val categoryDefDao: CategoryDefDao,
+    private val transactionDao: TransactionDao
 ) : CategoryRepository {
 
     override fun getAllCategories(): Flow<List<Category>> =
@@ -85,18 +87,24 @@ class CategoryRepositoryImpl @Inject constructor(
     }
 
     override suspend fun deleteCategoryWithRecords(categoryId: Long) {
-        // TODO: 阶段 2 实现——需要删除 transaction 表中关联记录
-        categoryDefDao.deleteCategory(categoryId)
-    }
-
-    override suspend fun migrateCategoryRecords(
-        fromCategoryId: Long,
-        toCategoryL1Id: Long?,
-        toCategoryL2Id: Long?,
-        toCategoryL1Name: String,
-        toCategoryL2Name: String?
-    ) {
-        // TODO: 阶段 2 实现——需要批量更新 transaction 表
+        // 判断是一级还是二级分类，分别删除关联流水
+        val category = categoryDefDao.getCategoryById(categoryId)
+        if (category != null) {
+            if (category.parentId == null) {
+                // 一级分类：删除该一级分类下的所有流水 + 其子分类下的流水
+                transactionDao.deleteTransactionsByCategoryL1Id(categoryId)
+                // 同时删除子分类定义
+                val subs = categoryDefDao.getSubCategoriesOnce(categoryId)
+                subs.forEach { sub ->
+                    transactionDao.deleteTransactionsByCategoryL2Id(sub.id)
+                    categoryDefDao.deleteCategory(sub.id)
+                }
+            } else {
+                // 二级分类：删除该二级分类下的流水
+                transactionDao.deleteTransactionsByCategoryL2Id(categoryId)
+            }
+            categoryDefDao.deleteCategory(categoryId)
+        }
     }
 
     override suspend fun isCategoryExists(name: String, parentId: Long?): Boolean {

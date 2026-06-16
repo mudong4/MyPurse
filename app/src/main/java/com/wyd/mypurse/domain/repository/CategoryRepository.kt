@@ -50,11 +50,8 @@ interface CategoryRepository {
     /** 删除分类（返回被删分类信息，供迁移用） */
     suspend fun deleteCategory(id: Long): Category?
 
-    /** 删除分类及所有关联记录 */
+    /** 删除分类及所有关联记录（含子分类和流水） */
     suspend fun deleteCategoryWithRecords(categoryId: Long)
-
-    /** 迁移记录到新分类 */
-    suspend fun migrateCategoryRecords(fromCategoryId: Long, toCategoryL1Id: Long?, toCategoryL2Id: Long?, toCategoryL1Name: String, toCategoryL2Name: String?)
 
     /** 判断分类是否已存在 */
     suspend fun isCategoryExists(name: String, parentId: Long?): Boolean

@@ -4,6 +4,7 @@ import com.wyd.mypurse.domain.model.CategoryAmount
 import com.wyd.mypurse.domain.model.MonthlyAmount
 import com.wyd.mypurse.domain.model.PeriodSummary
 import com.wyd.mypurse.domain.model.Transaction
+import com.wyd.mypurse.domain.model.TrendPoint
 import kotlinx.coroutines.flow.Flow
 import java.math.BigDecimal
 
@@ -48,9 +49,14 @@ interface TransactionRepository {
     suspend fun getTopCategoriesByMonth(year: Int, month: Int, limit: Int): List<CategoryAmount>
 
     /**
-     * 获取本月预算（nullable，可能未设置）。
+     * 获取当前预算（nullable，可能未设置）。
      */
-    suspend fun getBudget(year: Int, month: Int): BigDecimal?
+    suspend fun getBudget(): BigDecimal?
+
+    /**
+     * 监听预算变化（Flow），用于首页实时更新。
+     */
+    fun observeBudget(): Flow<BigDecimal?>
 
     /**
      * 插入一条交易记录。
@@ -102,4 +108,45 @@ interface TransactionRepository {
      * 删除交易记录。
      */
     suspend fun deleteTransaction(id: Long)
+
+    // ========== 统计页 ==========
+
+    /**
+     * 按时间范围和流水类型获取一级分类构成。
+     */
+    suspend fun getCategoryComposition(
+        rangeStart: Long,
+        rangeEnd: Long,
+        flowType: String?
+    ): List<CategoryAmount>
+
+    /**
+     * 获取指定一级分类下的二级分类构成。
+     */
+    suspend fun getSubCategoryComposition(
+        rangeStart: Long,
+        rangeEnd: Long,
+        flowType: String?,
+        categoryL1Id: Long
+    ): List<CategoryAmount>
+
+    /**
+     * 按指定粒度获取支出趋势数据。
+     * label 格式：日="YYYY-MM-DD"、周="YYYY-Www"、月="YYYY-MM"、季="YYYY-Qn"、年="YYYY"
+     */
+    suspend fun getExpenseTrend(
+        granularity: String,
+        rangeStart: Long,
+        rangeEnd: Long
+    ): List<TrendPoint>
+
+    /**
+     * 获取全年度的年度支出趋势（年粒度特殊处理，不限时间范围）。
+     */
+    suspend fun getYearlyExpenseTrend(): List<TrendPoint>
+
+    /**
+     * 获取数据库中所有有交易记录的年份（降序）。
+     */
+    suspend fun getAvailableYears(): List<Int>
 }

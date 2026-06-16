@@ -146,40 +146,7 @@ class CategoryManageViewModel @Inject constructor(
     }
 
     /**
-     * 删除分类选项 2：迁移至其他分类
-     * @param targetCategory 目标分类
-     */
-    fun onDeleteMigrateRecords(targetCategory: Category) {
-        viewModelScope.launch {
-            val dialog = _uiState.value.deleteDialog ?: return@launch
-            val isTopLevel = dialog.category.parentId == null
-            if (isTopLevel) {
-                categoryRepository.migrateCategoryRecords(
-                    fromCategoryId = dialog.category.id,
-                    toCategoryL1Id = targetCategory.id,
-                    toCategoryL2Id = null,
-                    toCategoryL1Name = targetCategory.name,
-                    toCategoryL2Name = null
-                )
-            } else {
-                val parent = dialog.category.parentId?.let {
-                    categoryRepository.getCategoryById(it)
-                }
-                categoryRepository.migrateCategoryRecords(
-                    fromCategoryId = dialog.category.id,
-                    toCategoryL1Id = parent?.id,
-                    toCategoryL2Id = targetCategory.id,
-                    toCategoryL1Name = parent?.name ?: "",
-                    toCategoryL2Name = targetCategory.name
-                )
-            }
-            categoryRepository.deleteCategory(dialog.category.id)
-            _uiState.value = _uiState.value.copy(deleteDialog = null)
-        }
-    }
-
-    /**
-     * 删除分类选项 3：删除分类及所有关联记录
+     * 删除分类选项 2：删除分类及所有关联记录
      */
     fun onDeleteWithRecords() {
         viewModelScope.launch {

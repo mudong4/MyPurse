@@ -217,6 +217,16 @@ class TransactionListViewModel @Inject constructor(
 
     fun toggleDatePicker() {
         _uiState.update { it.copy(showDatePicker = !it.showDatePicker) }
+        if (!_uiState.value.showDatePicker) return
+        // 打开选择器时异步加载可用年份
+        viewModelScope.launch {
+            try {
+                val years = transactionRepository.getAvailableYears()
+                _uiState.update { it.copy(availableYears = years) }
+            } catch (_: Exception) {
+                // 静默失败，选择器会 fallback 到空列表
+            }
+        }
     }
 
     fun dismissDatePicker() {

@@ -4,10 +4,12 @@ import com.wyd.mypurse.data.local.dao.BudgetDao
 import com.wyd.mypurse.data.local.dao.TransactionDao
 import com.wyd.mypurse.data.local.entity.BudgetEntity
 import com.wyd.mypurse.data.local.entity.TransactionEntity
+import com.wyd.mypurse.data.local.dao.TrendTuple
 import com.wyd.mypurse.domain.model.CategoryAmount
 import com.wyd.mypurse.domain.model.MonthlyAmount
 import com.wyd.mypurse.domain.model.PeriodSummary
 import com.wyd.mypurse.domain.model.Transaction
+import com.wyd.mypurse.domain.model.TrendPoint
 import com.wyd.mypurse.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -96,8 +98,12 @@ class TransactionRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun getBudget(year: Int, month: Int): BigDecimal? {
-        return budgetDao.getBudget(year, month)?.totalBudget
+    override suspend fun getBudget(): BigDecimal? {
+        return budgetDao.getBudget()?.amount
+    }
+
+    override fun observeBudget(): Flow<BigDecimal?> {
+        return budgetDao.observeBudget().map { it?.amount }
     }
 
     override suspend fun insertTransaction(
@@ -165,6 +171,51 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun deleteTransaction(id: Long) {
         transactionDao.deleteTransaction(id)
+    }
+
+    // ========== 统计页 ==========
+
+    override suspend fun getCategoryComposition(
+        rangeStart: Long,
+        rangeEnd: Long,
+        flowType: String?
+    ): List<CategoryAmount> {
+        return transactionDao.getCategoryComposition(rangeStart, rangeEnd, flowType)
+            .map { CategoryAmount(categoryL1Id = it.categoryL1Id, categoryL1 = it.categoryL1, total = it.total) }
+    }
+
+    override suspend fun getSubCategoryComposition(
+        rangeStart: Long,
+        rangeEnd: Long,
+        flowType: String?,
+        categoryL1Id: Long
+    ): List<CategoryAmount> {
+        return transactionDao.getSubCategoryComposition(rangeStart, rangeEnd, flowType, categoryL1Id)
+            .map { CategoryAmount(categoryL1Id = categoryL1Id, categoryL1 = it.categoryL1, total = it.total) }
+    }
+
+    override suspend fun getExpenseTrend(
+        granularity: String,
+        rangeStart: Long,
+        rangeEnd: Long
+    ): List<TrendPoint> {
+        val tuples: List<TrendTuple> = when (granularity) {
+            "day" -> transactionDao.getDailyExpenseTrend(rangeStart, rangeEnd)
+            "week" -> transactionDao.getWeeklyExpenseTrend(rangeStart, rangeEnd)
+            "month" -> transactionDao.getMonthlyExpenseTrendOnce(rangeStart, rangeEnd)
+            "quarter" -> transactionDao.getQuarterlyExpenseTrend(rangeStart, rangeEnd)
+            else -> transactionDao.getDailyExpenseTrend(rangeStart, rangeEnd)
+        }
+        return tuples.map { TrendPoint(label = it.label, total = it.total) }
+    }
+
+    override suspend fun getYearlyExpenseTrend(): List<TrendPoint> {
+        return transactionDao.getYearlyExpenseTrend()
+            .map { TrendPoint(label = it.label, total = it.total) }
+    }
+
+    override suspend fun getAvailableYears(): List<Int> {
+        return transactionDao.getAvailableYears()
     }
 
     // ========== 时间工具 ==========

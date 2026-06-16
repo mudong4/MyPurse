@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>统计模块 Demo - MyPurse</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; color: #1a1a1a; max-width: 420px; margin: 0 auto; min-height: 100vh; }
+
+  /* 顶部概览卡片 */
+  .overview { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #fff; padding: 20px 16px 16px; }
+  .overview-title { font-size: 13px; opacity: 0.85; margin-bottom: 8px; }
+  .overview-row { display: flex; justify-content: space-between; align-items: flex-end; }
+  .overview-item { text-align: center; flex: 1; }
+  .overview-label { font-size: 11px; opacity: 0.75; margin-bottom: 2px; }
+  .overview-value { font-size: 22px; font-weight: 700; }
+  .overview-divider { width: 1px; height: 40px; background: rgba(255,255,255,0.25); }
+
+  /* 时间选择器 */
+  .time-picker { background: #fff; padding: 8px 16px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #eee; }
+  .time-nav { width: 36px; height: 36px; border-radius: 50%; border: 1px solid #ddd; background: #fff; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #555; }
+  .time-nav:active { background: #f0f0f0; }
+  .time-label { font-size: 15px; font-weight: 600; cursor: pointer; padding: 4px 8px; border-radius: 6px; }
+  .time-label:active { background: #f0f0f0; }
+  .granularity-dropdown { display: none; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.15); z-index: 10; min-width: 80px; overflow: hidden; }
+  .granularity-dropdown.show { display: block; }
+  .granularity-option { padding: 10px 20px; font-size: 14px; cursor: pointer; text-align: center; }
+  .granularity-option:active { background: #f0f0f0; }
+  .granularity-option.active { color: #667eea; font-weight: 600; background: #f0eaff; }
+  .time-picker-wrapper { position: relative; }
+
+  /* 视图 Tab */
+  .view-tabs { display: flex; background: #fff; border-bottom: 1px solid #eee; }
+  .view-tab { flex: 1; padding: 12px; text-align: center; font-size: 14px; font-weight: 500; color: #888; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; }
+  .view-tab.active { color: #667eea; border-bottom-color: #667eea; }
+  .view-tab:active { background: #fafafa; }
+
+  /* 内容区 */
+  .content { padding: 12px 16px; }
+
+  /* 构成分析 - 条形图 */
+  .bar-chart { background: #fff; border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .bar-row { display: flex; align-items: center; margin-bottom: 10px; cursor: pointer; }
+  .bar-row:last-child { margin-bottom: 0; }
+  .bar-label { width: 56px; font-size: 13px; font-weight: 500; text-align: right; padding-right: 8px; flex-shrink: 0; }
+  .bar-track { flex: 1; height: 24px; background: #f0f0f0; border-radius: 12px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; border-radius: 12px; transition: width 0.3s ease; }
+  .bar-amount { width: 72px; font-size: 12px; text-align: right; padding-left: 8px; flex-shrink: 0; color: #666; }
+  .bar-pct { width: 44px; font-size: 11px; text-align: right; padding-left: 4px; flex-shrink: 0; color: #999; }
+  .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #333; }
+  .chart-subtitle { font-size: 11px; color: #999; margin-bottom: 16px; }
+
+  /* 饼图切换 */
+  .chart-toggle { display: flex; justify-content: flex-end; margin-bottom: 12px; gap: 4px; }
+  .chart-toggle-btn { padding: 4px 12px; border-radius: 14px; border: 1px solid #ddd; background: #fff; font-size: 12px; cursor: pointer; color: #666; }
+  .chart-toggle-btn.active { background: #667eea; color: #fff; border-color: #667eea; }
+
+  /* 简易饼图 (CSS) */
+  .pie-container { display: flex; align-items: center; justify-content: center; gap: 16px; flex-wrap: wrap; }
+  .pie-chart { width: 180px; height: 180px; border-radius: 50%; position: relative; }
+  .pie-legend { display: flex; flex-direction: column; gap: 6px; }
+  .pie-legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .pie-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .pie-legend-name { min-width: 40px; }
+  .pie-legend-pct { color: #999; }
+
+  /* 二级分类展开 */
+  .sub-bars { padding-left: 16px; border-left: 2px solid #eee; margin: 0 0 10px 28px; display: none; }
+  .sub-bars.show { display: block; }
+  .sub-bar-row { display: flex; align-items: center; margin-bottom: 6px; }
+  .sub-bar-label { width: 56px; font-size: 12px; color: #888; text-align: right; padding-right: 8px; }
+  .sub-bar-track { flex: 1; height: 16px; background: #f0f0f0; border-radius: 8px; overflow: hidden; }
+  .sub-bar-fill { height: 100%; border-radius: 8px; opacity: 0.7; }
+  .sub-bar-amount { width: 72px; font-size: 11px; text-align: right; padding-left: 8px; color: #999; }
+
+  /* 趋势图 - Canvas */
+  .trend-chart-wrap { background: #fff; border-radius: 12px; padding: 16px; }
+  .trend-canvas { width: 100%; height: 240px; display: block; }
+  .trend-summary { display: flex; justify-content: space-around; padding: 12px 0; background: #fff; border-radius: 12px; margin-top: 12px; }
+  .trend-summary-item { text-align: center; }
+  .trend-summary-label { font-size: 11px; color: #999; margin-bottom: 2px; }
+  .trend-summary-value { font-size: 16px; font-weight: 600; }
+  .trend-summary-sub { font-size: 11px; color: #888; }
+
+  /* 底部查看明细 */
+  .view-detail { text-align: center; padding: 10px; color: #667eea; font-size: 13px; cursor: pointer; }
+  .view-detail:active { opacity: 0.7; }
+
+  /* 空状态 */
+  .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-text { font-size: 15px; margin-bottom: 8px; }
+  .empty-btn { display: inline-block; padding: 8px 20px; background: #667eea; color: #fff; border-radius: 20px; font-size: 13px; cursor: pointer; margin-top: 12px; }
+</style>
+</head>
+<body>
+
+<!-- 概览卡片 -->
+<div class="overview">
+  <div class="overview-title" id="overviewRange">2026年6月</div>
+  <div class="overview-row">
+    <div class="overview-item">
+      <div class="overview-label">支出</div>
+      <div class="overview-value" style="color:#ffcccc;" id="overviewExpense">¥8,520</div>
+    </div>
+    <div class="overview-divider"></div>
+    <div class="overview-item">
+      <div class="overview-label">收入</div>
+      <div class="overview-value" style="color:#ccffcc;" id="overviewIncome">¥15,000</div>
+    </div>
+    <div class="overview-divider"></div>
+    <div class="overview-item">
+      <div class="overview-label">预算剩余</div>
+      <div class="overview-value" id="overviewBudget">¥1,480</div>
+    </div>
+  </div>
+</div>
+
+<!-- 时间选择器 -->
+<div class="time-picker">
+  <button class="time-nav" onclick="navigateTime(-1)">←</button>
+  <div class="time-picker-wrapper">
+    <span class="time-label" id="timeLabel" onclick="toggleGranularity()">2026年6月</span>
+    <div class="granularity-dropdown" id="granularityDropdown">
+      <div class="granularity-option" onclick="setGranularity('day')">按天</div>
+      <div class="granularity-option" onclick="setGranularity('week')">按周</div>
+      <div class="granularity-option active" onclick="setGranularity('month')">按月</div>
+      <div class="granularity-option" onclick="setGranularity('quarter')">按季</div>
+      <div class="granularity-option" onclick="setGranularity('year')">按年</div>
+    </div>
+  </div>
+  <button class="time-nav" onclick="navigateTime(1)">→</button>
+</div>
+
+<!-- 视图切换 -->
+<div class="view-tabs">
+  <div class="view-tab active" id="tabComposition" onclick="switchView('composition')">构成分析</div>
+  <div class="view-tab" id="tabTrend" onclick="switchView('trend')">趋势分析</div>
+</div>
+
+<!-- 构成分析视图 -->
+<div class="content" id="viewComposition">
+  <!-- 支出/收入 Tab -->
+  <div class="view-tabs" style="border-bottom:none; margin-bottom:12px;">
+    <div class="view-tab active" id="typeExpense" onclick="switchType('expense')">支出构成</div>
+    <div class="view-tab" id="typeIncome" onclick="switchType('income')">收入构成</div>
+  </div>
+
+  <!-- 图表切换按钮 -->
+  <div class="chart-toggle">
+    <button class="chart-toggle-btn active" id="toggleBar" onclick="switchChartType('bar')">条形图</button>
+    <button class="chart-toggle-btn" id="togglePie" onclick="switchChartType('pie')">饼图</button>
+  </div>
+
+  <!-- 条形图 -->
+  <div class="bar-chart" id="barChartContainer">
+    <div class="chart-title" id="compChartTitle">支出构成</div>
+    <div class="chart-subtitle" id="compChartSub">共 ¥8,520 · 2026年6月</div>
+    <div id="barChartContent"></div>
+  </div>
+
+  <!-- 饼图 -->
+  <div class="bar-chart" id="pieChartContainer" style="display:none;">
+    <div class="chart-title" id="pieChartTitle">支出构成</div>
+    <div class="chart-subtitle" id="pieChartSub">共 ¥8,520 · 2026年6月</div>
+    <div class="pie-container" id="pieChartContent"></div>
+  </div>
+
+  <div class="view-detail">查看全部流水 →</div>
+</div>
+
+<!-- 趋势分析视图 -->
+<div class="content" id="viewTrend" style="display:none;">
+  <div class="trend-chart-wrap">
+    <div class="chart-title">支出趋势</div>
+    <canvas class="trend-canvas" id="trendCanvas"></canvas>
+  </div>
+  <div class="trend-summary">
+    <div class="trend-summary-item">
+      <div class="trend-summary-label">月均支出</div>
+      <div class="trend-summary-value" id="trendAvg">¥8,235</div>
+    </div>
+    <div class="trend-summary-item">
+      <div class="trend-summary-label">最高月份</div>
+      <div class="trend-summary-value" id="trendMax">¥12,680</div>
+      <div class="trend-summary-sub" id="trendMaxMonth">1月</div>
+    </div>
+    <div class="trend-summary-item">
+      <div class="trend-summary-label">最低月份</div>
+      <div class="trend-summary-value" id="trendMin">¥5,120</div>
+      <div class="trend-summary-sub" id="trendMinMonth">4月</div>
+    </div>
+    <div class="trend-summary-item">
+      <div class="trend-summary-label">环比上月</div>
+      <div class="trend-summary-value" id="trendMoM" style="color:#e53e3e;">+12.5%</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ============ 模拟数据 ============
+  const expenseData = [
+    { name: '餐饮', amount: 2850, color: '#ff6b6b', subs: [{name:'午餐', amt:1200},{name:'晚餐', amt:850},{name:'零食', amt:500},{name:'外卖', amt:300}] },
+    { name: '交通', amount: 1680, color: '#ffa94d', subs: [{name:'地铁', amt:600},{name:'打车', amt:880},{name:'共享单车', amt:200}] },
+    { name: '购物', amount: 1420, color: '#ffd43b', subs: [{name:'日用品', amt:620},{name:'服饰', amt:800}] },
+    { name: '住房', amount: 1200, color: '#69db7c', subs: [{name:'物业', amt:300},{name:'水电', amt:500},{name:'维修', amt:400}] },
+    { name: '娱乐', amount: 680, color: '#4dabf7', subs: [{name:'电影', amt:280},{name:'游戏', amt:400}] },
+    { name: '通讯', amount: 320, color: '#da77f2', subs: [{name:'话费', amt:200},{name:'流量', amt:120}] },
+    { name: '医疗', amount: 210, color: '#20c997', subs: [{name:'门诊', amt:150},{name:'药品', amt:60}] },
+    { name: '其他', amount: 160, color: '#adb5bd', subs: [] },
+  ];
+  const incomeData = [
+    { name: '工资', amount: 12000, color: '#40c057' },
+    { name: '兼职', amount: 2000, color: '#69db7c' },
+    { name: '理财', amount: 600, color: '#8ce99a' },
+    { name: '红包', amount: 300, color: '#b2f2bb' },
+    { name: '其他', amount: 100, color: '#d3f9d8' },
+  ];
+
+  // 12个月趋势数据
+  const trendData = [
+    { label:'1月', amount:12680 },
+    { label:'2月', amount:9800 },
+    { label:'3月', amount:11200 },
+    { label:'4月', amount:5120 },
+    { label:'5月', amount:7580 },
+    { label:'6月', amount:8520 },
+    { label:'7月', amount:9100 },
+    { label:'8月', amount:10300 },
+    { label:'9月', amount:7800 },
+    { label:'10月', amount:8600 },
+    { label:'11月', amount:9400 },
+    { label:'12月', amount:0 },
+  ];
+
+  // ============ 状态 ============
+  let currentView = 'composition';
+  let currentType = 'expense'; // expense | income
+  let currentGranularity = 'month';
+  let currentChartType = 'bar';
+  let currentTimeOffset = 0; // 0 = 当前月
+  let expandedCategory = null;
+
+  // ============ 时间选择器 ============
+  function toggleGranularity() {
+    document.getElementById('granularityDropdown').classList.toggle('show');
+  }
+
+  function setGranularity(g) {
+    currentGranularity = g;
+    currentTimeOffset = 0;
+    document.getElementById('granularityDropdown').classList.remove('show');
+    // 更新选项高亮
+    document.querySelectorAll('.granularity-option').forEach(el => el.classList.remove('active'));
+    document.querySelector(`.granularity-option[onclick*="${g}"]`)?.classList.add('active');
+    updateTimeLabel();
+    renderAll();
+  }
+
+  function navigateTime(dir) {
+    currentTimeOffset += dir;
+    updateTimeLabel();
+    renderAll();
+  }
+
+  function updateTimeLabel() {
+    const now = new Date();
+    const d = new Date(now.getFullYear(), now.getMonth() + currentTimeOffset, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+    let label, rangeStr;
+    switch(currentGranularity) {
+      case 'day':
+        const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + currentTimeOffset);
+        const weekDays = ['周日','周一','周二','周三','周四','周五','周六'];
+        label = `${day.getMonth()+1}月${day.getDate()}日 ${weekDays[day.getDay()]}`;
+        rangeStr = `${day.getFullYear()}年${day.getMonth()+1}月${day.getDate()}日`;
+        break;
+      case 'week':
+        const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay() + currentTimeOffset * 7);
+        const weekEnd = new Date(weekStart.getTime() + 6*86400000);
+        label = `${weekStart.getMonth()+1}月${weekStart.getDate()}日 - ${weekEnd.getMonth()+1}月${weekEnd.getDate()}日`;
+        rangeStr = `${weekStart.getFullYear()}年第${Math.ceil((weekStart.getTime() - new Date(weekStart.getFullYear(),0,1).getTime())/86400000/7)}周`;
+        break;
+      case 'month':
+        label = `${y}年${monthNames[m]}`;
+        rangeStr = label;
+        break;
+      case 'quarter':
+        const q = Math.floor(m/3) + 1;
+        label = `${y}年Q${q} (${q*3-2}-${q*3}月)`;
+        rangeStr = label;
+        break;
+      case 'year':
+        label = `${y}年`;
+        rangeStr = label;
+        break;
+    }
+    document.getElementById('timeLabel').textContent = label;
+    document.getElementById('overviewRange').textContent = rangeStr;
+  }
+
+  // ============ 视图切换 ============
+  function switchView(view) {
+    currentView = view;
+    document.getElementById('viewComposition').style.display = view === 'composition' ? 'block' : 'none';
+    document.getElementById('viewTrend').style.display = view === 'trend' ? 'block' : 'none';
+    document.getElementById('tabComposition').classList.toggle('active', view === 'composition');
+    document.getElementById('tabTrend').classList.toggle('active', view === 'trend');
+    if (view === 'trend') drawTrendChart();
+  }
+
+  function switchType(type) {
+    currentType = type;
+    document.getElementById('typeExpense').classList.toggle('active', type === 'expense');
+    document.getElementById('typeIncome').classList.toggle('active', type === 'income');
+    expandedCategory = null;
+    renderComposition();
+  }
+
+  function switchChartType(type) {
+    currentChartType = type;
+    document.getElementById('toggleBar').classList.toggle('active', type === 'bar');
+    document.getElementById('togglePie').classList.toggle('active', type === 'pie');
+    document.getElementById('barChartContainer').style.display = type === 'bar' ? 'block' : 'none';
+    document.getElementById('pieChartContainer').style.display = type === 'pie' ? 'block' : 'none';
+    if (type === 'pie') renderPieChart();
+    if (type === 'bar') renderBarChart();
+  }
+
+  // ============ 构成分析 ============
+  function renderComposition() {
+    if (currentChartType === 'bar') renderBarChart();
+    else renderPieChart();
+  }
+
+  function renderAll() {
+    if (currentView === 'composition') renderComposition();
+    else drawTrendChart();
+  }
+
+  function renderBarChart() {
+    const data = currentType === 'expense' ? expenseData : incomeData;
+    const total = data.reduce((s, c) => s + c.amount, 0);
+    const maxAmt = data[0]?.amount || 1;
+
+    document.getElementById('compChartTitle').textContent = currentType === 'expense' ? '支出构成' : '收入构成';
+    document.getElementById('compChartSub').textContent = `共 ¥${total.toLocaleString()} · ${document.getElementById('overviewRange').textContent}`;
+
+    let html = '';
+    data.forEach((item, i) => {
+      const pct = total > 0 ? (item.amount / total * 100).toFixed(1) : '0.0';
+      const barWidth = (item.amount / maxAmt * 100);
+      const isExpanded = expandedCategory === i;
+
+      html += `<div class="bar-row" onclick="toggleSub(${i})">
+        <div class="bar-label">${item.name}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${barWidth}%; background:${item.color};"></div>
+        </div>
+        <div class="bar-amount">¥${item.amount.toLocaleString()}</div>
+        <div class="bar-pct">${pct}%</div>
+      </div>`;
+
+      if (item.subs && item.subs.length > 0) {
+        const subMax = Math.max(...item.subs.map(s => s.amt));
+        html += `<div class="sub-bars ${isExpanded ? 'show' : ''}" id="subBars${i}">`;
+        item.subs.forEach(sub => {
+          html += `<div class="sub-bar-row">
+            <div class="sub-bar-label">${sub.name}</div>
+            <div class="sub-bar-track">
+              <div class="sub-bar-fill" style="width:${(sub.amt/subMax*100)}%; background:${item.color};"></div>
+            </div>
+            <div class="sub-bar-amount">¥${sub.amt.toLocaleString()}</div>
+          </div>`;
+        });
+        html += '</div>';
+      }
+    });
+    document.getElementById('barChartContent').innerHTML = html;
+  }
+
+  function toggleSub(index) {
+    expandedCategory = expandedCategory === index ? null : index;
+    renderBarChart();
+  }
+
+  function renderPieChart() {
+    const data = currentType === 'expense' ? expenseData : incomeData;
+    const total = data.reduce((s, c) => s + c.amount, 0);
+    // TOP5 + 其他
+    const top5 = data.slice(0, 5);
+    const otherAmount = data.slice(5).reduce((s, c) => s + c.amount, 0);
+    const pieData = [...top5];
+    if (otherAmount > 0) pieData.push({ name: '其他', amount: otherAmount, color: '#adb5bd' });
+
+    document.getElementById('pieChartTitle').textContent = currentType === 'expense' ? '支出构成' : '收入构成';
+    document.getElementById('pieChartSub').textContent = `共 ¥${total.toLocaleString()} · ${document.getElementById('overviewRange').textContent}`;
+
+    // 生成 conic-gradient
+    let cumulative = 0;
+    const segments = pieData.map(item => {
+      const pct = total > 0 ? item.amount / total * 100 : 0;
+      const start = cumulative;
+      cumulative += pct;
+      return { ...item, pct, start };
+    });
+
+    const gradientParts = segments.map(s =>
+      `${s.color} ${s.start}% ${s.start + s.pct}%`
+    ).join(', ');
+    const pieStyle = `background: conic-gradient(${gradientParts});`;
+
+    let legendHtml = segments.map(s => `
+      <div class="pie-legend-item">
+        <div class="pie-legend-dot" style="background:${s.color};"></div>
+        <span class="pie-legend-name">${s.name}</span>
+        <span class="pie-legend-pct">${s.pct.toFixed(1)}%</span>
+      </div>
+    `).join('');
+
+    document.getElementById('pieChartContent').innerHTML = `
+      <div class="pie-chart" style="${pieStyle}"></div>
+      <div class="pie-legend">${legendHtml}</div>
+    `;
+  }
+
+  // ============ 趋势分析 ============
+  function drawTrendChart() {
+    const canvas = document.getElementById('trendCanvas');
+    const dpr = window.devicePixelRatio || 1;
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = 240 * dpr;
+    canvas.style.width = rect.width + 'px';
+    canvas.style.height = '240px';
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+
+    const w = rect.width;
+    const h = 240;
+    const pad = { top: 20, right: 20, bottom: 40, left: 50 };
+    const cw = w - pad.left - pad.right;
+    const ch = h - pad.top - pad.bottom;
+
+    // 过滤掉未到来的月份(amount=0)
+    const data = trendData.filter(d => d.amount > 0);
+    const maxVal = Math.max(...data.map(d => d.amount));
+
+    ctx.clearRect(0, 0, w, h);
+
+    // Y 轴刻度
+    ctx.fillStyle = '#999';
+    ctx.font = '11px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    for (let i = 0; i <= 4; i++) {
+      const val = Math.round(maxVal * (4 - i) / 4);
+      const y = pad.top + (ch / 4) * i;
+      ctx.fillText('¥' + val.toLocaleString(), pad.left - 8, y + 4);
+      ctx.strokeStyle = '#eee';
+      ctx.beginPath();
+      ctx.moveTo(pad.left, y);
+      ctx.lineTo(w - pad.right, y);
+      ctx.stroke();
+    }
+
+    // 柱状图
+    const barWidth = Math.min(28, cw / data.length * 0.6);
+    const gap = cw / data.length;
+
+    data.forEach((d, i) => {
+      const x = pad.left + gap * i + (gap - barWidth) / 2;
+      const barH = (d.amount / maxVal) * ch;
+      const y = pad.top + ch - barH;
+
+      // 柱子
+      const isCurrent = d.label === '6月';
+      const gradient = ctx.createLinearGradient(x, y, x, pad.top + ch);
+      gradient.addColorStop(0, isCurrent ? '#667eea' : '#a0b4f0');
+      gradient.addColorStop(1, isCurrent ? '#764ba2' : '#d0d8f8');
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.roundRect(x, y, barWidth, barH, [4, 4, 0, 0]);
+      ctx.fill();
+
+      // 金额标注
+      ctx.fillStyle = '#666';
+      ctx.font = '10px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('¥' + (d.amount/1000).toFixed(1) + 'k', x + barWidth/2, y - 6);
+
+      // X 轴标签（按月12个全显示，刚好）
+      ctx.fillStyle = '#888';
+      ctx.font = '11px -apple-system, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(d.label, x + barWidth/2, pad.top + ch + 18);
+    });
+
+    // 折线图叠加
+    ctx.strokeStyle = '#ff6b6b';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    data.forEach((d, i) => {
+      const x = pad.left + gap * i + gap / 2;
+      const y = pad.top + ch - (d.amount / maxVal) * ch;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // 折线图数据点
+    data.forEach((d, i) => {
+      const x = pad.left + gap * i + gap / 2;
+      const y = pad.top + ch - (d.amount / maxVal) * ch;
+      ctx.fillStyle = '#ff6b6b';
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fill();
+    });
+
+    // 更新摘要
+    const activeData = data.filter(d => d.amount > 0);
+    const avg = Math.round(activeData.reduce((s,d) => s+d.amount, 0) / activeData.length);
+    const maxD = activeData.reduce((a,b) => a.amount > b.amount ? a : b);
+    const minD = activeData.reduce((a,b) => a.amount < b.amount ? a : b);
+    document.getElementById('trendAvg').textContent = '¥' + avg.toLocaleString();
+    document.getElementById('trendMax').textContent = '¥' + maxD.amount.toLocaleString();
+    document.getElementById('trendMaxMonth').textContent = maxD.label;
+    document.getElementById('trendMin').textContent = '¥' + minD.amount.toLocaleString();
+    document.getElementById('trendMinMonth').textContent = minD.label;
+
+    // 环比（简单模拟：6月 vs 5月）
+    const thisM = data.find(d => d.label === '6月');
+    const lastM = data.find(d => d.label === '5月');
+    if (thisM && lastM) {
+      const mom = ((thisM.amount - lastM.amount) / lastM.amount * 100);
+      const momEl = document.getElementById('trendMoM');
+      momEl.textContent = (mom >= 0 ? '+' : '') + mom.toFixed(1) + '%';
+      momEl.style.color = mom >= 0 ? '#e53e3e' : '#38a169';
+    }
+  }
+
+  // ============ 初始化 ============
+  updateTimeLabel();
+  renderBarChart();
+
+  // 点击空白关闭粒度下拉
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.time-picker-wrapper')) {
+      document.getElementById('granularityDropdown').classList.remove('show');
+    }
+  });
+
+  // 窗口大小变化重绘趋势图
+  window.addEventListener('resize', () => {
+    if (currentView === 'trend') drawTrendChart();
+  });
+</script>
+
+</body>
+</html>

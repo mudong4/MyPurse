@@ -45,3 +45,12 @@ data class PeriodSummary(
     val expense: BigDecimal = BigDecimal.ZERO,
     val income: BigDecimal = BigDecimal.ZERO
 )
+
+/**
+ * 趋势数据点（统计页趋势图使用）。
+ * label 格式因粒度而异：日="06-16"、周="W24"、月="6月"、季="Q2"、年="2026"
+ */
+data class TrendPoint(
+    val label: String,
+    val total: BigDecimal
+)

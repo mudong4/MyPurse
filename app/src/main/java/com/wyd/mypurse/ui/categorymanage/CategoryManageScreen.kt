@@ -178,6 +178,8 @@ fun CategoryManageScreen(
                             onToggleExpand = { viewModel.onToggleExpand(category.id) },
                             onEdit = { viewModel.onShowEditDialog(category) },
                             onDelete = { viewModel.onShowDeleteDialog(category) },
+                            onEditSub = { sub -> viewModel.onShowEditDialog(sub) },
+                            onDeleteSub = { sub -> viewModel.onShowDeleteDialog(sub) },
                             onAddSub = { viewModel.onShowAddDialog(category.id) },
                             dragModifier = Modifier.pointerInput(category.id) {
                                 detectDragGesturesAfterLongPress(
@@ -238,11 +240,8 @@ fun CategoryManageScreen(
         CategoryDeleteDialog(
             category = dialog.category,
             hasChildren = dialog.hasChildren,
-            allCategories = uiState.currentTabCategories,
-            subCategories = uiState.subCategories,
             onDismiss = { viewModel.onDismissDeleteDialog() },
             onDeleteKeepRecords = { viewModel.onDeleteKeepRecords() },
-            onDeleteMigrateRecords = { target -> viewModel.onDeleteMigrateRecords(target) },
             onDeleteWithRecords = { viewModel.onDeleteWithRecords() }
         )
     }
@@ -257,6 +256,8 @@ private fun CategoryItem(
     onToggleExpand: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onEditSub: (Category) -> Unit = {},
+    onDeleteSub: (Category) -> Unit = {},
     onAddSub: () -> Unit,
     dragModifier: Modifier = Modifier
 ) {
@@ -343,12 +344,9 @@ private fun CategoryItem(
                             style = MaterialTheme.typography.bodyMedium
                         )
                         Row {
-                            TextButton(onClick = {
-                                onEdit()
-                                // TODO: 编辑二级分类
-                            }) { Text("编辑") }
+                            TextButton(onClick = { onEditSub(sub) }) { Text("编辑") }
                             TextButton(
-                                onClick = onDelete,
+                                onClick = { onDeleteSub(sub) },
                                 colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
                                     contentColor = MaterialTheme.colorScheme.error
                                 )
@@ -414,111 +412,72 @@ private fun CategoryEditDialog(
 }
 
 /**
- * 删除分类三选项确认弹窗。
- * 选项 1：直接删除（保留记录快照名）
- * 选项 2：迁移至其他分类
- * 选项 3：删除分类及所有关联记录
+ * 删除分类确认弹窗（两选项）。
+ * 选项 1：保留记录（仅删除分类定义）
+ * 选项 2：删除分类及所有关联记录
  */
 @Composable
 private fun CategoryDeleteDialog(
     category: Category,
     hasChildren: Boolean,
-    allCategories: List<Category>,
-    subCategories: Map<Long, List<Category>>,
     onDismiss: () -> Unit,
     onDeleteKeepRecords: () -> Unit,
-    onDeleteMigrateRecords: (Category) -> Unit,
     onDeleteWithRecords: () -> Unit
 ) {
-    var showMigrationSelector by remember { mutableStateOf(false) }
-
-    if (showMigrationSelector) {
-        // 迁移目标选择
-        AlertDialog(
-            onDismissRequest = { showMigrationSelector = false },
-            title = { Text("迁移至哪个分类？") },
-            text = {
-                LazyColumn {
-                    items(allCategories) { target ->
-                        if (target.id != category.id) {
-                            TextButton(
-                                onClick = { onDeleteMigrateRecords(target) },
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Text(target.name)
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = { showMigrationSelector = false }) { Text("取消") }
-            }
-        )
-    } else {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = { Text("删除「${category.name}」") },
-            text = {
-                Column {
-                    Text("请选择删除方式：")
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("删除「${category.name}」") },
+        text = {
+            Column {
+                if (hasChildren) {
+                    Text(
+                        text = "该分类下包含子分类，删除后将一并移除。",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error
+                    )
                     Spacer(modifier = Modifier.height(12.dp))
+                }
+                Text("请选择删除方式：")
+                Spacer(modifier = Modifier.height(12.dp))
 
-                    // 选项 1：直接删除，保留记录
-                    TextButton(
-                        onClick = onDeleteKeepRecords,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(horizontalAlignment = Alignment.Start) {
-                            Text("直接删除（保留历史记录）", fontWeight = FontWeight.Medium)
-                            Text(
-                                text = "已存在的记录保留原分类名称快照",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    // 选项 2：迁移至其他分类
-                    TextButton(
-                        onClick = { showMigrationSelector = true },
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(horizontalAlignment = Alignment.Start) {
-                            Text("迁移至其他分类", fontWeight = FontWeight.Medium)
-                            Text(
-                                text = "历史记录批量替换为新的分类",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-
-                    // 选项 3：删除分类及关联记录
-                    TextButton(
-                        onClick = onDeleteWithRecords,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Column(horizontalAlignment = Alignment.Start) {
-                            Text(
-                                "删除分类及所有关联记录",
-                                fontWeight = FontWeight.Medium,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                            Text(
-                                text = "将同时删除该分类下的所有流水记录",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
+                // 选项 1：保留记录
+                TextButton(
+                    onClick = onDeleteKeepRecords,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text("保留历史记录", fontWeight = FontWeight.Medium)
+                        Text(
+                            text = "仅删除分类，已存在的流水记录保留原分类名称",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-            },
-            confirmButton = {},
-            dismissButton = {
-                TextButton(onClick = onDismiss) { Text("取消") }
+
+                // 选项 2：删除记录
+                TextButton(
+                    onClick = onDeleteWithRecords,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(
+                            "删除分类及所有关联记录",
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = "将同时删除该分类下的所有流水记录",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
             }
-        )
-    }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
 }
