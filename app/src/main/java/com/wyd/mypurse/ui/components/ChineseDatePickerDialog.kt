@@ -50,7 +50,7 @@ import kotlinx.coroutines.launch
 import java.util.Calendar
 
 /** 日历选择器弹窗的背景色（底部 Sheet 默认背景） */
-private val SheetBackground = Color(0xFFF5F5F5)
+private val SheetBackground = com.wyd.mypurse.ui.theme.AppSheetBg
 
 /**
  * 中文日历选择器（底部 Sheet 样式）。
@@ -262,7 +262,7 @@ fun ChineseDatePickerDialog(
             Spacer(modifier = Modifier.height(12.dp))
 
             // 分割线 + 确定按钮
-            HorizontalDivider(color = Color(0xFFE0E0E0))
+            HorizontalDivider(color = com.wyd.mypurse.ui.theme.AppDivider)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -270,7 +270,7 @@ fun ChineseDatePickerDialog(
                 horizontalArrangement = Arrangement.End
             ) {
                 TextButton(onClick = onDismiss) {
-                    Text("取消", color = Color.Gray)
+                    Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 TextButton(onClick = { onSelected(selectedYear, selectedMonth, selectedDay) }) {
                     Text("确定", color = MaterialTheme.colorScheme.primary)
@@ -340,7 +340,7 @@ private fun YearMonthWheelSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             // 分割线 + 按钮
-            HorizontalDivider(color = Color(0xFFE0E0E0))
+            HorizontalDivider(color = com.wyd.mypurse.ui.theme.AppDivider)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -348,7 +348,7 @@ private fun YearMonthWheelSheet(
                 horizontalArrangement = Arrangement.End
             ) {
                 TextButton(onClick = onDismiss) {
-                    Text("取消", color = Color.Gray)
+                    Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 TextButton(onClick = { onConfirm(pickerYear, pickerMonth) }) {
                     Text("确定", color = MaterialTheme.colorScheme.primary)
@@ -363,18 +363,28 @@ private fun YearMonthWheelSheet(
  * 使用 LazyColumn 实现：每个 item 高度固定 40dp，总共显示 5 行（可视区域 200dp），
  * 通过监听滚动位置自动吸附到最近的一项，中间项高亮显示为选中。
  *
- * @param items         可选项列表
- * @param selectedIndex 初始选中的索引
- * @param displayText   将 item 转为显示文本
- * @param onSelected    选中回调
+ * 使用场景：
+ * - ChineseDatePickerDialog 内的年月滚轮
+ * - 统计页 YearMonthSheet 内的年月滚轮
+ *
+ * @param items           可选项列表
+ * @param selectedIndex   初始选中的索引
+ * @param displayText     将 item 转为显示文本
+ * @param onSelected      选中回调
+ * @param highlightColor  中间高亮条颜色（默认 primary 10% 透明）
+ * @param backgroundColor 渐变遮罩背景色（默认 #F5F5F5）
  */
 @Composable
-private fun <T> WheelPicker(
+internal fun <T> WheelPicker(
     items: List<T>,
     selectedIndex: Int,
     displayText: (T) -> String,
     onSelected: (T) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    highlightColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+    selectedTextColor: Color = MaterialTheme.colorScheme.primary,
+    unselectedTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    backgroundColor: Color = SheetBackground
 ) {
     val itemHeightDp = 40.dp
     val visibleItems = 5
@@ -424,9 +434,6 @@ private fun <T> WheelPicker(
         }
     }
 
-    val highlightColor = MaterialTheme.colorScheme.primary
-        .copy(alpha = 0.1f)
-
     Box(modifier = modifier) {
         // 中间高亮条（选中项背景）
         Box(
@@ -468,8 +475,7 @@ private fun <T> WheelPicker(
                         text = displayText(item),
                         fontSize = if (isCenter) 18.sp else 14.sp,
                         fontWeight = if (isCenter) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isCenter) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = if (isCenter) selectedTextColor else unselectedTextColor,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -487,8 +493,8 @@ private fun <T> WheelPicker(
                 .background(
                     brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                         colors = listOf(
-                            SheetBackground,
-                            SheetBackground.copy(alpha = 0f)
+                            backgroundColor,
+                            backgroundColor.copy(alpha = 0f)
                         )
                     )
                 )
@@ -503,8 +509,8 @@ private fun <T> WheelPicker(
                 .background(
                     brush = androidx.compose.ui.graphics.Brush.verticalGradient(
                         colors = listOf(
-                            SheetBackground.copy(alpha = 0f),
-                            SheetBackground
+                            backgroundColor.copy(alpha = 0f),
+                            backgroundColor
                         )
                     )
                 )

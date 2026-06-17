@@ -31,4 +31,8 @@ interface RecurringTemplateDao {
 
     @Query("DELETE FROM recurring_template WHERE id = :id")
     suspend fun deleteTemplate(id: Long)
+
+    /** 清空全部模板记录 */
+    @Query("DELETE FROM recurring_template")
+    suspend fun deleteAllTemplates()
 }

@@ -21,7 +21,13 @@ data class AddTransactionUiState(
     val isSaving: Boolean = false,
     val shouldClose: Boolean = false,
     val saveSuccess: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    /** 编辑模式：非 0 表示正在编辑已有记录 */
+    val editingTransactionId: Long = 0,
+    /** 是否为固定模板生成的记录（编辑后解除关联） */
+    val isRecurring: Boolean = false,
+    /** 加载已有记录中 */
+    val isLoadingEditData: Boolean = false
 ) {
     /**
      * 当前金额的 BigDecimal 表示，非法输入返回 null。

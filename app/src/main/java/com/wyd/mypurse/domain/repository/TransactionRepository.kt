@@ -149,4 +149,18 @@ interface TransactionRepository {
      * 获取数据库中所有有交易记录的年份（降序）。
      */
     suspend fun getAvailableYears(): List<Int>
+
+    // ========== 数据管理 ==========
+
+    /** 一次性获取全部交易记录（供 CSV 导出） */
+    suspend fun getAllTransactionsOnce(): List<Transaction>
+
+    /** 一次性按时间范围获取交易记录（供 CSV 导出） */
+    suspend fun getTransactionsByRangeOnce(rangeStart: Long, rangeEnd: Long): List<Transaction>
+
+    /** 清空全部数据（交易+分类+预算+模板），之后重新播种内置分类 */
+    suspend fun clearAllData()
+
+    /** 获取总记录数 */
+    suspend fun getTransactionCount(): Int
 }

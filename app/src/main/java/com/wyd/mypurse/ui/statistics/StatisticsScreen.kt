@@ -57,7 +57,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -79,28 +78,22 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.CategoryAmount
 import com.wyd.mypurse.domain.model.TrendPoint
 import com.wyd.mypurse.domain.usecase.GetStatisticsUseCase.Granularity
-import kotlinx.coroutines.flow.distinctUntilChanged
+import com.wyd.mypurse.ui.components.EmptyStateText
+import com.wyd.mypurse.ui.components.WheelPicker
+import com.wyd.mypurse.ui.components.rememberDebounce
+import com.wyd.mypurse.ui.theme.AppBarChartBg
+import com.wyd.mypurse.ui.theme.AppBudgetBlue
+import com.wyd.mypurse.ui.theme.AppDivider
+import com.wyd.mypurse.ui.theme.AppExpenseRed
+import com.wyd.mypurse.ui.theme.AppIncomeGreen
+import com.wyd.mypurse.ui.theme.AppSheetBg
+import com.wyd.mypurse.ui.theme.AppSurfaceBg
+import com.wyd.mypurse.ui.theme.DefaultChartColors
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.util.Calendar
-
-// ========== 色值 ==========
-private val ExpenseRed = Color(0xFFE53935)
-private val IncomeGreen = Color(0xFF43A047)
-private val ChartBlue = Color(0xFF1E88E5)
-private val ChartOrange = Color(0xFFFF7043)
-private val ChartPurple = Color(0xFF8E24AA)
-private val ChartTeal = Color(0xFF00ACC1)
-private val ChartPink = Color(0xFFEC407A)
-private val ChartIndigo = Color(0xFF3949AB)
-private val SurfaceBg = Color(0xFFF8F9FA)
-
-private val donutColors = listOf(
-    Color(0xFF1E88E5), Color(0xFF43A047), Color(0xFFFB8C00),
-    Color(0xFFE53935), Color(0xFF8E24AA), Color(0xFF9E9E9E) // 最后一个是"其他"
-)
 
 private val df = DecimalFormat("#,###.##")
 private val dfPct = DecimalFormat("#.#")
@@ -115,6 +108,7 @@ fun StatisticsScreen(
     viewModel: StatisticsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val debounce = rememberDebounce()
     val useCase = viewModel // 通过 ViewModel 引用 UseCase 的方法
     // 实际上 ViewModel 没有直接暴露 UseCase，我们改用函数引用
     val labelStep = if (uiState.trend.isNotEmpty()) {
@@ -137,7 +131,7 @@ fun StatisticsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceBg
+                    containerColor = MaterialTheme.colorScheme.background
                 )
             )
         },
@@ -148,13 +142,13 @@ fun StatisticsScreen(
                 timeLabel = uiState.timeLabel,
                 pageMode = uiState.pageMode,
                 availableYears = uiState.availableYears,
-                onGranularityChange = { viewModel.setGranularity(it) },
-                onNavigateTime = { viewModel.navigateTime(it) },
-                onJumpToTimestamp = { viewModel.jumpToTimestamp(it) },
-                onTogglePageMode = { viewModel.togglePageMode() }
+                onGranularityChange = { debounce { viewModel.setGranularity(it) } },
+                onNavigateTime = { direction -> debounce { viewModel.navigateTime(direction) } },
+                onJumpToTimestamp = { ts -> debounce { viewModel.jumpToTimestamp(ts) } },
+                onTogglePageMode = { debounce { viewModel.togglePageMode() } }
             )
         },
-        containerColor = SurfaceBg
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         if (uiState.isLoading) {
             Box(
@@ -226,7 +220,7 @@ private fun CategoryPage(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 顶部：支出/收入 Tab + 图表切换按钮
@@ -244,8 +238,8 @@ private fun CategoryPage(
                         onClick = { if (isShowingIncome) onToggleType() },
                         label = { Text("支出", fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = ExpenseRed.copy(alpha = 0.12f),
-                            selectedLabelColor = ExpenseRed
+                            selectedContainerColor = AppExpenseRed.copy(alpha = 0.12f),
+                            selectedLabelColor = AppExpenseRed
                         ),
                         modifier = Modifier.height(28.dp)
                     )
@@ -254,8 +248,8 @@ private fun CategoryPage(
                         onClick = { if (!isShowingIncome) onToggleType() },
                         label = { Text("收入", fontSize = 12.sp) },
                         colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = IncomeGreen.copy(alpha = 0.12f),
-                            selectedLabelColor = IncomeGreen
+                            selectedContainerColor = AppIncomeGreen.copy(alpha = 0.12f),
+                            selectedLabelColor = AppIncomeGreen
                         ),
                         modifier = Modifier.height(28.dp)
                     )
@@ -272,7 +266,7 @@ private fun CategoryPage(
                     Text(
                         text = chartMode.iconLabel,
                         fontSize = 18.sp,
-                        color = ChartBlue
+                        color = DefaultChartColors.chartPrimary
                     )
                 }
             }
@@ -280,13 +274,9 @@ private fun CategoryPage(
             Spacer(modifier = Modifier.height(16.dp))
 
             if (composition.isEmpty()) {
-                Text(
-                    text = "暂无数据",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 32.dp),
-                    textAlign = TextAlign.Center,
-                    color = Color.Gray
+                EmptyStateText(
+                    message = "暂无数据",
+                    modifier = Modifier.fillMaxWidth()
                 )
             } else {
                 val total = composition.sumOf { it.total }
@@ -329,7 +319,7 @@ private fun OverviewCard(totalExpense: BigDecimal, totalIncome: BigDecimal) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier = Modifier
@@ -338,23 +328,23 @@ private fun OverviewCard(totalExpense: BigDecimal, totalIncome: BigDecimal) {
             horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("支出", fontSize = 13.sp, color = Color.Gray)
+                Text("支出", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "-¥${df.format(totalExpense)}",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = ExpenseRed
+                    color = AppExpenseRed
                 )
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("收入", fontSize = 13.sp, color = Color.Gray)
+                Text("收入", fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "+¥${df.format(totalIncome)}",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
-                    color = IncomeGreen
+                    color = AppIncomeGreen
                 )
             }
         }
@@ -386,7 +376,7 @@ private fun DonutChart(
                 } else 0f
 
                 drawArc(
-                    color = donutColors[index % donutColors.size],
+                    color = DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size],
                     startAngle = startAngle,
                     sweepAngle = sweep,
                     useCenter = false,
@@ -403,7 +393,7 @@ private fun DonutChart(
             Text(
                 text = if (total > BigDecimal.ZERO) "${dfPct.format(total.divide(total, 1, RoundingMode.HALF_UP).multiply(BigDecimal("100")))}%" else "0%",
                 fontSize = 11.sp,
-                color = Color.Gray
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -427,7 +417,7 @@ private fun DonutChart(
                         .clip(RoundedCornerShape(2.dp))
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        drawRect(color = donutColors[index % donutColors.size])
+                        drawRect(color = DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size])
                     }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -439,7 +429,7 @@ private fun DonutChart(
                 Text(
                     text = "¥${df.format(item.total)}  ${dfPct.format(pct)}%",
                     fontSize = 11.sp,
-                    color = Color.Gray
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
@@ -464,7 +454,7 @@ private fun CompositionBarList(
         val pctText = if (total > BigDecimal.ZERO) {
             item.total.multiply(BigDecimal("100")).divide(total, 1, RoundingMode.HALF_UP)
         } else BigDecimal.ZERO
-        val color = donutColors[index % donutColors.size]
+        val color = DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size]
 
         CompositionBar(
             name = item.categoryL1,
@@ -496,7 +486,7 @@ private fun CompositionBarList(
                 Text(
                     text = "无二级分类",
                     modifier = Modifier.fillMaxWidth().padding(start = 32.dp, top = 2.dp, bottom = 8.dp),
-                    fontSize = 11.sp, color = Color.Gray
+                    fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
                 val subTotal = subComposition.sumOf { it.total }
@@ -514,7 +504,7 @@ private fun CompositionBarList(
                                 text = sub.categoryL1,
                                 fontSize = 11.sp,
                                 modifier = Modifier.width(56.dp),
-                                color = Color.Gray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Box(
                                 modifier = Modifier
@@ -535,7 +525,7 @@ private fun CompositionBarList(
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "¥${df.format(sub.total)}",
-                                fontSize = 10.sp, color = Color.Gray
+                                fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -582,7 +572,7 @@ private fun CompositionBar(
                     .weight(1f)
                     .height(28.dp)
                     .clip(RoundedCornerShape(6.dp))
-                    .background(Color(0xFFEEEEEE))
+                    .background(AppBarChartBg)
             ) {
                 // 彩色填充条
                 Box(
@@ -605,13 +595,13 @@ private fun CompositionBar(
                         text = "¥${df.format(amount)}",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (pct > 0.4f) Color.White else Color.DarkGray
+                        color = if (pct > 0.4f) Color.White else MaterialTheme.colorScheme.onSurface
                     )
                     Text(
                         text = "${dfPct.format(pctText)}%",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
-                        color = if (pct > 0.4f) Color.White.copy(alpha = 0.8f) else Color.Gray
+                        color = if (pct > 0.4f) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -635,7 +625,7 @@ private fun TrendPage(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             // 顶部：图表切换按钮
@@ -653,7 +643,7 @@ private fun TrendPage(
                     Text(
                         text = chartMode.iconLabel,
                         fontSize = 18.sp,
-                        color = ChartBlue
+                        color = DefaultChartColors.chartPrimary
                     )
                 }
             }
@@ -661,11 +651,9 @@ private fun TrendPage(
             Spacer(modifier = Modifier.height(8.dp))
 
             if (trend.isEmpty()) {
-                Text(
-                    text = "暂无数据",
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
-                    textAlign = TextAlign.Center,
-                    color = Color.Gray
+                EmptyStateText(
+                    message = "暂无数据",
+                    modifier = Modifier.fillMaxWidth()
                 )
             } else {
                 val maxAmount = trend.maxOfOrNull { it.total } ?: BigDecimal.ONE
@@ -684,7 +672,7 @@ private fun TrendPage(
                         textAlign = TextAlign.Center,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
-                        color = ChartOrange
+                        color = DefaultChartColors.chartAccent
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                 }
@@ -776,7 +764,7 @@ private fun BarChart(
             val barH = drawH * hFrac
             val y = topPad + drawH - barH
 
-            val color = if (index == selectedIndex) ChartOrange else ChartBlue
+            val color = if (index == selectedIndex) DefaultChartColors.chartAccent else DefaultChartColors.chartPrimary
             drawRect(color = color, topLeft = Offset(x, y), size = Size(barW, barH))
         }
 
@@ -784,7 +772,7 @@ private fun BarChart(
         if (selectedIndex != null && selectedIndex < trend.size) {
             val lineX = barSpacing * (selectedIndex + 1)
             drawLine(
-                color = ChartOrange.copy(alpha = 0.5f),
+                color = DefaultChartColors.chartAccent.copy(alpha = 0.5f),
                 start = Offset(lineX, topPad),
                 end = Offset(lineX, topPad + drawH),
                 strokeWidth = 1.5.dp.toPx()
@@ -862,7 +850,7 @@ private fun LineChart(
         }
         fillPath.lineTo(barSpacing * trend.size, topPad + drawH)
         fillPath.close()
-        drawPath(path = fillPath, color = ChartBlue.copy(alpha = 0.1f))
+        drawPath(path = fillPath, color = DefaultChartColors.chartPrimary.copy(alpha = 0.1f))
 
         // 折线
         val linePath = Path()
@@ -873,7 +861,7 @@ private fun LineChart(
             val y = topPad + drawH * (1 - hFrac)
             if (index == 0) linePath.moveTo(x, y) else linePath.lineTo(x, y)
         }
-        drawPath(path = linePath, color = ChartBlue, style = Stroke(width = 2.5.dp.toPx()))
+        drawPath(path = linePath, color = DefaultChartColors.chartPrimary, style = Stroke(width = 2.5.dp.toPx()))
 
         // 数据点
         trend.forEachIndexed { index, point ->
@@ -883,7 +871,7 @@ private fun LineChart(
             val y = topPad + drawH * (1 - hFrac)
             val isSelected = index == selectedIndex
             drawCircle(
-                color = if (isSelected) ChartOrange else ChartBlue,
+                color = if (isSelected) DefaultChartColors.chartAccent else DefaultChartColors.chartPrimary,
                 radius = (if (isSelected) 6 else 4).dp.toPx(),
                 center = Offset(x, y)
             )
@@ -898,7 +886,7 @@ private fun LineChart(
         if (selectedIndex != null && selectedIndex < trend.size) {
             val lineX = barSpacing * (selectedIndex + 1)
             drawLine(
-                color = ChartOrange.copy(alpha = 0.4f),
+                color = DefaultChartColors.chartAccent.copy(alpha = 0.4f),
                 start = Offset(lineX, topPad),
                 end = Offset(lineX, topPad + drawH),
                 strokeWidth = 1.5.dp.toPx()
@@ -949,13 +937,13 @@ private fun TrendSummary(trend: List<TrendPoint>) {
             text = "趋势概览",
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF333333)
+            color = MaterialTheme.colorScheme.onSurface
         )
         Spacer(modifier = Modifier.weight(1f))
         Text(
             text = "合计 ¥${df.format(total)}",
             fontSize = 12.sp,
-            color = Color.Gray
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 
@@ -964,16 +952,16 @@ private fun TrendSummary(trend: List<TrendPoint>) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        SummaryItem("均值", "¥${df.format(avg)}", ChartBlue)
-        SummaryItem("最高", "¥${df.format(maxPoint.total)}", ExpenseRed)
-        SummaryItem("最低", "¥${df.format(minPoint.total)}", IncomeGreen)
+        SummaryItem("均值", "¥${df.format(avg)}", DefaultChartColors.chartPrimary)
+        SummaryItem("最高", "¥${df.format(maxPoint.total)}", AppExpenseRed)
+        SummaryItem("最低", "¥${df.format(minPoint.total)}", AppIncomeGreen)
     }
 }
 
 @Composable
-private fun SummaryItem(label: String, value: String, valueColor: Color = Color.Black) {
+private fun SummaryItem(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.onSurface) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, fontSize = 11.sp, color = Color.Gray)
+        Text(text = label, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(modifier = Modifier.height(2.dp))
         Text(
             text = value,
@@ -1002,7 +990,7 @@ private fun BottomToolbar(
     var showTimePicker by remember { mutableStateOf(false) }
 
     Column {
-        HorizontalDivider(color = Color(0xFFE0E0E0))
+        HorizontalDivider(color = AppDivider)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1026,7 +1014,7 @@ private fun BottomToolbar(
                         Icons.Filled.KeyboardArrowDown,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = Color.Gray
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 DropdownMenu(
@@ -1039,7 +1027,8 @@ private fun BottomToolbar(
                                 Text(
                                     g.label,
                                     fontWeight = if (g == granularity) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (g == granularity) ChartBlue else Color.Black
+                                    color = if (g == granularity) DefaultChartColors.chartPrimary
+                                    else MaterialTheme.colorScheme.onSurface
                                 )
                             },
                             onClick = {
@@ -1072,7 +1061,7 @@ private fun BottomToolbar(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
-                    color = ChartBlue,
+                    color = DefaultChartColors.chartPrimary,
                     modifier = Modifier
                         .clickable { showTimePicker = true }
                         .padding(horizontal = 6.dp, vertical = 4.dp)
@@ -1098,7 +1087,7 @@ private fun BottomToolbar(
                 text = targetLabel,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                color = ChartBlue,
+                color = DefaultChartColors.chartPrimary,
                 modifier = Modifier
                     .clickable(onClick = onTogglePageMode)
                     .padding(horizontal = 8.dp, vertical = 6.dp)
@@ -1123,7 +1112,7 @@ private fun BottomToolbar(
 
 // ========== 时间选择弹窗（底部 Sheet 样式） ==========
 
-private val SheetBg = Color(0xFFF5F5F5)
+private val SheetBg = AppSheetBg
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1228,13 +1217,13 @@ private fun YearSheet(
                 "选择年份",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF333333),
+                color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 12.dp),
                 textAlign = TextAlign.Center
             )
-            HorizontalDivider(color = Color(0xFFE0E0E0))
+            HorizontalDivider(color = AppDivider)
             LazyColumn(modifier = Modifier.heightIn(max = 350.dp)) {
                 items(years) { year ->
                     val isSelected = year == curYear
@@ -1251,7 +1240,7 @@ private fun YearSheet(
                             )
                             .padding(vertical = 14.dp, horizontal = 20.dp),
                         color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                        else Color(0xFF333333),
+                        else MaterialTheme.colorScheme.onSurface,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         textAlign = TextAlign.Center,
                         fontSize = 16.sp
@@ -1291,7 +1280,7 @@ private fun YearMonthSheet(
                 "${selectedYear}年${selectedMonth}月",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = ChartBlue,
+                color = DefaultChartColors.chartPrimary,
                 modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
             )
             Row(
@@ -1300,31 +1289,39 @@ private fun YearMonthSheet(
                     .height(200.dp),
                 horizontalArrangement = Arrangement.Center
             ) {
-                WheelPickerForStat(
+                WheelPicker(
                     items = years,
                     selectedIndex = years.indexOf(selectedYear).coerceAtLeast(0),
                     displayText = { "${it}年" },
                     onSelected = { selectedYear = it },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
+                    selectedTextColor = DefaultChartColors.chartPrimary,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    backgroundColor = SheetBg
                 )
                 Spacer(Modifier.width(16.dp))
-                WheelPickerForStat(
+                WheelPicker(
                     items = (1..12).toList(),
                     selectedIndex = selectedMonth - 1,
                     displayText = { "${it}月" },
                     onSelected = { selectedMonth = it },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
+                    selectedTextColor = DefaultChartColors.chartPrimary,
+                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    backgroundColor = SheetBg
                 )
             }
             Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = Color(0xFFE0E0E0))
+            HorizontalDivider(color = AppDivider)
             Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.End
             ) {
-                TextButton(onClick = onDismiss) { Text("取消", color = Color.Gray) }
+                TextButton(onClick = onDismiss) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 TextButton(onClick = { onSelected(selectedYear, selectedMonth) }) {
-                    Text("确定", color = ChartBlue)
+                    Text("确定", color = DefaultChartColors.chartPrimary)
                 }
             }
         }
@@ -1383,7 +1380,7 @@ private fun CalendarSheet(
                                 .clickable { selectedYear = year; showYearPicker = false }
                                 .background(if (sel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                                 .padding(vertical = 12.dp, horizontal = 16.dp),
-                            color = if (sel) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF333333),
+                            color = if (sel) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
                             fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
                             textAlign = TextAlign.Center
                         )
@@ -1391,7 +1388,7 @@ private fun CalendarSheet(
                 }
             },
             confirmButton = {
-                Text("取消", color = Color.Gray,
+                Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clickable { showYearPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
             }
         )
@@ -1414,7 +1411,7 @@ private fun CalendarSheet(
                                     modifier = Modifier
                                         .weight(1f).padding(4.dp)
                                         .clip(RoundedCornerShape(8.dp))
-                                        .background(if (sel) ChartBlue else MaterialTheme.colorScheme.surfaceVariant)
+                                        .background(if (sel) DefaultChartColors.chartPrimary else MaterialTheme.colorScheme.surfaceVariant)
                                         .clickable { selectedMonth = m; showMonthPicker = false }
                                         .padding(vertical = 10.dp),
                                     contentAlignment = Alignment.Center
@@ -1429,7 +1426,7 @@ private fun CalendarSheet(
                 }
             },
             confirmButton = {
-                Text("取消", color = Color.Gray,
+                Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clickable { showMonthPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
             }
         )
@@ -1462,12 +1459,12 @@ private fun CalendarSheet(
                 }
                 Text(
                     "${selectedYear}年",
-                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ChartBlue,
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DefaultChartColors.chartPrimary,
                     modifier = Modifier.clickable { showYearPicker = true }.padding(horizontal = 4.dp)
                 )
                 Text(
                     "${selectedMonth}月",
-                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ChartBlue,
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DefaultChartColors.chartPrimary,
                     modifier = Modifier.clickable { showMonthPicker = true }.padding(horizontal = 4.dp)
                 )
                 IconButton(onClick = {
@@ -1485,7 +1482,7 @@ private fun CalendarSheet(
             else listOf("日", "一", "二", "三", "四", "五", "六")
             Row(modifier = Modifier.fillMaxWidth()) {
                 weekHeaders.forEach {
-                    Text(it, fontSize = 12.sp, color = Color.Gray, textAlign = TextAlign.Center,
+                    Text(it, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center,
                         modifier = Modifier.weight(1f))
                 }
             }
@@ -1522,7 +1519,7 @@ private fun CalendarSheet(
                                     .weight(1f)
                                     .padding(2.dp)
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(if (highlight) ChartBlue else Color.Transparent)
+                                    .background(if (highlight) DefaultChartColors.chartPrimary else Color.Transparent)
                                     .clickable {
                                         selectedDay = day
                                         if (weekMode) {
@@ -1543,9 +1540,9 @@ private fun CalendarSheet(
                                     fontSize = 13.sp,
                                     color = when {
                                         highlight -> Color.White
-                                        !weekMode && (col == 0 || col == 6) -> ExpenseRed
-                                        weekMode && (col == 5 || col == 6) -> ExpenseRed
-                                        else -> Color(0xFF333333)
+                                        !weekMode && (col == 0 || col == 6) -> AppExpenseRed
+                                        weekMode && (col == 5 || col == 6) -> AppExpenseRed
+                                        else -> MaterialTheme.colorScheme.onSurface
                                     },
                                     fontWeight = if (highlight) FontWeight.Bold else FontWeight.Normal)
                             }
@@ -1589,7 +1586,7 @@ private fun QuarterSheet(
                                 .clickable { selectedYear = year; showYearPicker = false }
                                 .background(if (sel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
                                 .padding(vertical = 12.dp, horizontal = 16.dp),
-                            color = if (sel) MaterialTheme.colorScheme.onPrimaryContainer else Color(0xFF333333),
+                            color = if (sel) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
                             fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
                             textAlign = TextAlign.Center
                         )
@@ -1597,7 +1594,7 @@ private fun QuarterSheet(
                 }
             },
             confirmButton = {
-                Text("取消", color = Color.Gray,
+                Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.clickable { showYearPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
             }
         )
@@ -1619,7 +1616,7 @@ private fun QuarterSheet(
                 "${selectedYear}年",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = ChartBlue,
+                color = DefaultChartColors.chartPrimary,
                 modifier = Modifier
                     .clickable { showYearPicker = true }
                     .padding(horizontal = 12.dp, vertical = 12.dp)
@@ -1635,21 +1632,21 @@ private fun QuarterSheet(
                             .weight(1f)
                             .padding(6.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(if (isSelected) ChartBlue else MaterialTheme.colorScheme.surfaceVariant)
+                            .background(if (isSelected) DefaultChartColors.chartPrimary else MaterialTheme.colorScheme.surfaceVariant)
                             .clickable { onSelected(selectedYear, q) }
                             .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Q$q", fontSize = 20.sp, fontWeight = FontWeight.Bold,
-                                color = if (isSelected) Color.White else Color(0xFF333333))
+                                color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface)
                             Text(
                                 when (q) {
                                     1 -> "1-3月"; 2 -> "4-6月"; 3 -> "7-9月"; 4 -> "10-12月"
                                     else -> ""
                                 },
                                 fontSize = 11.sp,
-                                color = if (isSelected) Color.White.copy(alpha = 0.7f) else Color.Gray)
+                                color = if (isSelected) Color.White.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }
@@ -1659,101 +1656,4 @@ private fun QuarterSheet(
     }
 }
 
-// ========== 统计页专用滚轮 ==========
 
-@Composable
-private fun <T> WheelPickerForStat(
-    items: List<T>,
-    selectedIndex: Int,
-    displayText: (T) -> String,
-    onSelected: (T) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val itemHeightDp = 40.dp
-    val visibleItems = 5
-
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = (selectedIndex - visibleItems / 2).coerceAtLeast(0)
-    )
-    val coroutineScope = rememberCoroutineScope()
-    var centerIndex by remember { mutableStateOf(selectedIndex) }
-
-    LaunchedEffect(listState) {
-        snapshotFlow {
-            listState.layoutInfo.visibleItemsInfo
-                .minByOrNull { kotlin.math.abs(it.offset + it.size / 2 - listState.layoutInfo.viewportEndOffset / 2) }
-                ?.index
-        }
-            .distinctUntilChanged()
-            .collect { idx ->
-                if (idx != null && idx in items.indices && idx != centerIndex) {
-                    centerIndex = idx
-                    onSelected(items[idx])
-                }
-            }
-    }
-
-    val highlightColor = ChartBlue.copy(alpha = 0.1f)
-
-    Box(modifier = modifier) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth().height(itemHeightDp)
-                .align(Alignment.Center)
-                .clip(RoundedCornerShape(8.dp))
-                .background(highlightColor)
-        )
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxWidth().height(itemHeightDp * visibleItems),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            item { Spacer(Modifier.height(itemHeightDp * (visibleItems / 2))) }
-            items(items.size) { index ->
-                val item = items[index]
-                val isCenter = index == centerIndex
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth().height(itemHeightDp)
-                        .clickable {
-                            centerIndex = index
-                            onSelected(item)
-                            coroutineScope.launch { listState.animateScrollToItem(index) }
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = displayText(item),
-                        fontSize = if (isCenter) 18.sp else 14.sp,
-                        fontWeight = if (isCenter) FontWeight.Bold else FontWeight.Normal,
-                        color = if (isCenter) ChartBlue else Color.Gray,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-            item { Spacer(Modifier.height(itemHeightDp * (visibleItems / 2))) }
-        }
-        // 渐变遮罩
-        Box(
-            modifier = Modifier
-                .fillMaxWidth().height(itemHeightDp * (visibleItems / 2))
-                .align(Alignment.TopCenter)
-                .background(
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(SheetBg, SheetBg.copy(alpha = 0f))
-                    )
-                )
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth().height(itemHeightDp * (visibleItems / 2))
-                .align(Alignment.BottomCenter)
-                .background(
-                    brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                        colors = listOf(SheetBg.copy(alpha = 0f), SheetBg)
-                    )
-                )
-        )
-    }
-}

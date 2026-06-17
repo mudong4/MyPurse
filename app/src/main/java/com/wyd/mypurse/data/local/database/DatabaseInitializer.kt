@@ -63,6 +63,15 @@ class DatabaseInitializer @Inject constructor(
     }
 
     /**
+     * 强制重新播种（用于"清除所有数据"后）。重置 initialized 标志后调用 initializeIfNeeded。
+     */
+    suspend fun forceReinitialize() {
+        initialized = false
+        seedDefaultCategories()
+        initialized = true
+    }
+
+    /**
      * 插入内置分类种子数据。
      * 支出侧和收入侧分别插入，每个一级分类关联对应的二级分类。
      */

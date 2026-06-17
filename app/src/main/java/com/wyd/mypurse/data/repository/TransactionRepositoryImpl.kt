@@ -1,7 +1,10 @@
 package com.wyd.mypurse.data.repository
 
 import com.wyd.mypurse.data.local.dao.BudgetDao
+import com.wyd.mypurse.data.local.dao.CategoryDefDao
+import com.wyd.mypurse.data.local.dao.RecurringTemplateDao
 import com.wyd.mypurse.data.local.dao.TransactionDao
+import com.wyd.mypurse.data.local.database.DatabaseInitializer
 import com.wyd.mypurse.data.local.entity.BudgetEntity
 import com.wyd.mypurse.data.local.entity.TransactionEntity
 import com.wyd.mypurse.data.local.dao.TrendTuple
@@ -25,7 +28,10 @@ import javax.inject.Singleton
 @Singleton
 class TransactionRepositoryImpl @Inject constructor(
     private val transactionDao: TransactionDao,
-    private val budgetDao: BudgetDao
+    private val budgetDao: BudgetDao,
+    private val categoryDefDao: CategoryDefDao,
+    private val recurringTemplateDao: RecurringTemplateDao,
+    private val databaseInitializer: DatabaseInitializer
 ) : TransactionRepository {
 
     override fun getBalance(): Flow<BigDecimal> =
@@ -216,6 +222,32 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun getAvailableYears(): List<Int> {
         return transactionDao.getAvailableYears()
+    }
+
+    // ========== 数据管理 ==========
+
+    override suspend fun getAllTransactionsOnce(): List<Transaction> {
+        return transactionDao.getAllTransactionsOnce().map { it.toDomain() }
+    }
+
+    override suspend fun getTransactionsByRangeOnce(rangeStart: Long, rangeEnd: Long): List<Transaction> {
+        return transactionDao.getTransactionsByRangeOnce(rangeStart, rangeEnd).map { it.toDomain() }
+    }
+
+    override suspend fun clearAllData() {
+        transactionDao.deleteAllTransactions()
+        recurringTemplateDao.deleteAllTemplates()
+        budgetDao.deleteAllBudgets()
+        categoryDefDao.deleteAllCategories()
+        // 重新播种内置分类
+        val allCategories = categoryDefDao.getAllCategoriesOnce()
+        if (allCategories.isEmpty()) {
+            databaseInitializer.forceReinitialize()
+        }
+    }
+
+    override suspend fun getTransactionCount(): Int {
+        return transactionDao.getTransactionCount()
     }
 
     // ========== 时间工具 ==========

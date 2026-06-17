@@ -245,6 +245,93 @@ class AddTransactionViewModel @Inject constructor(
         _uiState.update { it.copy(saveSuccess = false) }
     }
 
+    // ========== 编辑模式 ==========
+
+    /**
+     * 加载已有记录数据用于编辑。编辑模式下保存会走 updateTransaction 而非 insertTransaction。
+     */
+    fun loadForEdit(transactionId: Long) {
+        _uiState.update { it.copy(isLoadingEditData = true) }
+        viewModelScope.launch {
+            try {
+                val tx = transactionRepository.getTransactionById(transactionId)
+                if (tx != null) {
+                    val flowType = if (tx.flowType == "收入") FlowType.INCOME else FlowType.EXPENSE
+                    // 加载对应 sign 的分类列表
+                    databaseInitializer.initializeIfNeeded()
+                    val categories = categoryRepository.getTopLevelCategoriesBySignOnce(flowType.sign)
+                        .filter { !it.isHidden }
+
+                    // 构造预填的 Category 对象（仅用于 UI 显示，不要求完整对象）
+                    val prefillL1 = Category(id = tx.categoryL1Id ?: -1, name = tx.categoryL1)
+                    val prefillL2 = tx.categoryL2?.let { name ->
+                        Category(id = tx.categoryL2Id ?: -1, name = name)
+                    }
+
+                    _uiState.update {
+                        it.copy(
+                            editingTransactionId = transactionId,
+                            selectedFlowType = flowType,
+                            amount = tx.amount.toPlainString(),
+                            categoryL1 = prefillL1,
+                            categoryL2 = prefillL2,
+                            topLevelCategories = categories,
+                            date = tx.date,
+                            note = tx.note ?: "",
+                            isRecurring = tx.recurringTemplateId != null,
+                            isLoadingEditData = false
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(isLoadingEditData = false, errorMessage = "记录不存在")
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isLoadingEditData = false, errorMessage = e.message ?: "加载失败")
+                }
+            }
+        }
+    }
+
+    /** 编辑模式：更新已有记录 */
+    fun updateExisting() {
+        val state = _uiState.value
+        val editingId = state.editingTransactionId
+        if (editingId == 0L || !state.isFormValid) return
+
+        _uiState.update { it.copy(isSaving = true, errorMessage = null) }
+
+        viewModelScope.launch {
+            try {
+                // 先加载原记录，在此基础上修改
+                val original = transactionRepository.getTransactionById(editingId)
+                if (original != null) {
+                    val updated = original.copy(
+                        flowType = state.selectedFlowType.name,
+                        categoryL1Id = state.categoryL1?.id,
+                        categoryL2Id = state.categoryL2?.id,
+                        categoryL1 = state.categoryL1!!.name,
+                        categoryL2 = state.categoryL2?.name,
+                        amount = state.amountDecimal!!,
+                        note = state.note.ifBlank { null },
+                        date = state.date,
+                        recurringTemplateId = null  // 编辑后解除模板关联
+                    )
+                    transactionRepository.updateTransaction(updated)
+                    _uiState.update { it.copy(isSaving = false, shouldClose = true) }
+                } else {
+                    _uiState.update { it.copy(isSaving = false, errorMessage = "记录不存在") }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(isSaving = false, errorMessage = e.message ?: "保存失败")
+                }
+            }
+        }
+    }
+
     // ========== 内部 ==========
 
     private fun loadTopLevelCategories(flowSign: Int) {

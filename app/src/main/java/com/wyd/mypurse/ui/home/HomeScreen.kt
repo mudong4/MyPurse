@@ -46,17 +46,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.CategoryAmount
 import com.wyd.mypurse.domain.model.MonthlyAmount
+import com.wyd.mypurse.ui.components.EmptyStateText
+import com.wyd.mypurse.ui.components.rememberDebounce
+import com.wyd.mypurse.ui.theme.AppBudgetBlue
+import com.wyd.mypurse.ui.theme.AppBudgetOrange
+import com.wyd.mypurse.ui.theme.AppBudgetOverRed
+import com.wyd.mypurse.ui.theme.AppExpenseRed
+import com.wyd.mypurse.ui.theme.AppIncomeGreen
+import com.wyd.mypurse.ui.theme.AppProgressTrack
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.DecimalFormat
-
-// ========== 语义色值 ==========
-private val ExpenseRed = Color(0xFFE53935)
-private val IncomeGreen = Color(0xFF43A047)
-private val BudgetBlue = Color(0xFF1E88E5)
-private val BudgetOrange = Color(0xFFFB8C00)
-private val BudgetOverRed = Color(0xFFD32F2F)
-private val ProgressBg = Color(0xFFE0E0E0)
 
 private val decimalFormat = DecimalFormat("#,##0.00")
 
@@ -74,6 +74,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val debounce = rememberDebounce()
 
     Scaffold(
         topBar = {
@@ -83,7 +84,7 @@ fun HomeScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
                 actions = {
-                    IconButton(onClick = onNavigateToBudget) {
+                    IconButton(onClick = { debounce { onNavigateToBudget() } }) {
                         Icon(Icons.Default.DateRange, contentDescription = "预算设置")
                     }
                 }
@@ -91,7 +92,7 @@ fun HomeScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onNavigateToAddTransaction,
+                onClick = { debounce { onNavigateToAddTransaction() } },
                 containerColor = MaterialTheme.colorScheme.primary
             ) {
                 Icon(Icons.Default.Add, contentDescription = "记一笔")
@@ -107,6 +108,15 @@ fun HomeScreen(
             ) {
                 CircularProgressIndicator()
             }
+        } else if (uiState.isNewUser) {
+            // 新用户引导：无任何记录时显示引导页
+            FirstTimeGuide(
+                onStartRecording = { debounce { onNavigateToAddTransaction() } },
+                onSetBudget = { debounce { onNavigateToBudget() } },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+            )
         } else {
             Column(
                 modifier = Modifier
@@ -121,7 +131,7 @@ fun HomeScreen(
                     balance = uiState.balance,
                     totalIncome = uiState.thisMonth.income,
                     totalExpense = uiState.thisMonth.expense,
-                    onClick = { onNavigateToTransactionList("month") }
+                    onClick = { debounce { onNavigateToTransactionList("month") } }
                 )
 
                 // 2. 日/周/月/年汇总区
@@ -130,21 +140,21 @@ fun HomeScreen(
                     thisWeek = uiState.thisWeek,
                     thisMonth = uiState.thisMonth,
                     thisYear = uiState.thisYear,
-                    onRowClick = { granularity -> onNavigateToTransactionList(granularity) }
+                    onRowClick = { granularity -> debounce { onNavigateToTransactionList(granularity) } }
                 )
 
                 // 3. 预算进度条
                 BudgetProgressBar(
                     spent = uiState.thisMonth.expense,
                     budget = uiState.budget,
-                    onClick = onNavigateToBudget
+                    onClick = { debounce { onNavigateToBudget() } }
                 )
 
                 // 4. 近6个月趋势图
                 if (uiState.trend.isNotEmpty()) {
                     TrendChartCard(
                         trend = uiState.trend,
-                        onClick = { onNavigateToStatistics("trend") }
+                        onClick = { debounce { onNavigateToStatistics("trend") } }
                     )
                 }
 
@@ -152,7 +162,7 @@ fun HomeScreen(
                 if (uiState.topCategories.isNotEmpty()) {
                     TopCategoriesCard(
                         categories = uiState.topCategories,
-                        onClick = { onNavigateToStatistics("composition") }
+                        onClick = { debounce { onNavigateToStatistics("composition") } }
                     )
                 }
 
@@ -173,7 +183,7 @@ private fun BalanceCard(
     onClick: () -> Unit
 ) {
     val isNegative = balance < BigDecimal.ZERO
-    val balanceColor = if (isNegative) ExpenseRed else MaterialTheme.colorScheme.onSurface
+    val balanceColor = if (isNegative) AppExpenseRed else MaterialTheme.colorScheme.onSurface
 
     Card(
         modifier = Modifier
@@ -214,7 +224,7 @@ private fun BalanceCard(
                     Text(
                         text = "-¥${decimalFormat.format(totalExpense)}",
                         style = MaterialTheme.typography.titleMedium,
-                        color = ExpenseRed
+                        color = AppExpenseRed
                     )
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -226,7 +236,7 @@ private fun BalanceCard(
                     Text(
                         text = "+¥${decimalFormat.format(totalIncome)}",
                         style = MaterialTheme.typography.titleMedium,
-                        color = IncomeGreen
+                        color = AppIncomeGreen
                     )
                 }
             }
@@ -301,13 +311,13 @@ private fun SummaryRow(
             Text(
                 text = "-¥${decimalFormat.format(expense)}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = ExpenseRed
+                color = AppExpenseRed
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = "+¥${decimalFormat.format(income)}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = IncomeGreen
+                color = AppIncomeGreen
             )
         }
     }
@@ -333,16 +343,16 @@ private fun BudgetProgressBar(
                 Text(
                     text = "设置月度预算 >",
                     style = MaterialTheme.typography.bodyLarge,
-                    color = BudgetBlue
+                    color = AppBudgetBlue
                 )
             } else {
                 val ratio = (spent.divide(budget, 4, RoundingMode.HALF_UP)
                     .coerceAtMost(BigDecimal.ONE))
                 val ratioFloat = ratio.toFloat()
                 val progressColor = when {
-                    ratio >= BigDecimal.ONE -> BudgetOverRed
-                    ratio >= BigDecimal("0.8") -> BudgetOrange
-                    else -> BudgetBlue
+                    ratio >= BigDecimal.ONE -> AppBudgetOverRed
+                    ratio >= BigDecimal("0.8") -> AppBudgetOrange
+                    else -> AppBudgetBlue
                 }
                 val animatedColor by animateColorAsState(progressColor, label = "budgetColor")
 
@@ -379,7 +389,7 @@ private fun BudgetProgressBar(
                         .height(8.dp)
                         .clip(RoundedCornerShape(4.dp)),
                     color = animatedColor,
-                    trackColor = ProgressBg,
+                    trackColor = AppProgressTrack,
                 )
 
                 Spacer(modifier = Modifier.height(4.dp))
@@ -419,13 +429,9 @@ private fun TrendChartCard(
             // 简洁柱状图：用 Compose 原生绘制
             val maxAmount = trend.maxOfOrNull { it.total } ?: BigDecimal.ONE
             if (maxAmount <= BigDecimal.ZERO) {
-                Text(
-                    text = "暂无数据",
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 24.dp),
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                EmptyStateText(
+                    message = "暂无数据",
+                    modifier = Modifier.fillMaxWidth()
                 )
             } else {
                 Row(
@@ -470,7 +476,7 @@ private fun TrendChartCard(
                                         androidx.compose.foundation.Canvas(
                                             modifier = Modifier.fillMaxSize()
                                         ) {
-                                            drawRect(color = BudgetBlue)
+                                            drawRect(color = AppBudgetBlue)
                                         }
                                     }
                                 }
@@ -520,7 +526,7 @@ private fun TopCategoriesCard(
                 Text(
                     text = "完整排行 >",
                     style = MaterialTheme.typography.labelSmall,
-                    color = BudgetBlue
+                    color = AppBudgetBlue
                 )
             }
 
@@ -580,9 +586,120 @@ private fun CategoryRankRow(
                 .fillMaxWidth()
                 .height(6.dp)
                 .clip(RoundedCornerShape(3.dp)),
-            color = BudgetBlue,
-            trackColor = ProgressBg,
+            color = AppBudgetBlue,
+            trackColor = AppProgressTrack,
         )
+    }
+}
+
+// ========== 6. 新用户引导 ==========
+
+@Composable
+private fun FirstTimeGuide(
+    onStartRecording: () -> Unit,
+    onSetBudget: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(modifier = Modifier.height(48.dp))
+
+        Text(
+            text = "📒",
+            fontSize = 64.sp
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "欢迎使用 MyPurse",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Text(
+            text = "简单纯粹的记账工具\n专注记录，不打扰",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            textAlign = TextAlign.Center
+        )
+
+        Spacer(modifier = Modifier.height(40.dp))
+
+        // 引导卡片
+        GuideStep(
+            emoji = "💰",
+            title = "记一笔",
+            description = "记录每天的支出和收入\n支持连续记账模式",
+            actionLabel = "开始记账",
+            onAction = onStartRecording
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        GuideStep(
+            emoji = "🎯",
+            title = "设定预算",
+            description = "设置月度预算，控制开销\n首页实时进度提醒",
+            actionLabel = "设置预算",
+            onAction = onSetBudget
+        )
+
+        Spacer(modifier = Modifier.height(48.dp))
+    }
+}
+
+@Composable
+private fun GuideStep(
+    emoji: String,
+    title: String,
+    description: String,
+    actionLabel: String,
+    onAction: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+    ) {
+        Row(
+            modifier = Modifier.padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = emoji,
+                fontSize = 36.sp
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                )
+            }
+            Text(
+                text = actionLabel,
+                color = AppBudgetBlue,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier
+                    .clickable(onClick = onAction)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
     }
 }
 

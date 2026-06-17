@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyPurse UI 风格 Demo v2</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #E8ECF1;
+  padding: 20px;
+}
+h2 { font-size: 18px; margin-bottom: 12px; color: #333; }
+.section-title {
+  font-size: 22px; font-weight: 700;
+  padding: 10px 0 6px;
+  border-bottom: 2px solid #ddd;
+  margin: 24px 0 12px;
+}
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 20px;
+}
+.panel {
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+/* ===== 风格 B — 柔和彩色（改进版） ===== */
+.style-b { background: #F5F0FF; }
+.style-b .card-overview {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 16px;
+  padding: 20px;
+  color: white;
+  text-align: center;
+}
+.style-b .card-overview .label {
+  font-size: 13px;
+  opacity: 0.85;
+}
+.style-b .card-overview .balance {
+  font-size: 36px;
+  font-weight: 800;
+  margin: 8px 0 16px;
+}
+.style-b .card-overview .row {
+  display: flex;
+  justify-content: space-around;
+}
+.style-b .card-overview .col { text-align: center; }
+.style-b .card-overview .col .sub-label {
+  font-size: 11px;
+  opacity: 0.75;
+  margin-bottom: 4px;
+}
+.style-b .card-overview .col .expense {
+  font-size: 17px;
+  font-weight: 700;
+  color: #FF8A80;
+}
+.style-b .card-overview .col .income {
+  font-size: 17px;
+  font-weight: 700;
+  color: #A5D6A7;
+}
+.style-b .card-section {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+}
+.style-b .card-section .sec-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #444;
+}
+.style-b .rank-item {
+  display: flex; align-items: center; margin-bottom: 8px;
+}
+.style-b .rank-item .name {
+  width: 56px; font-size: 13px; color: #555;
+}
+.style-b .rank-bar-bg {
+  flex: 1; height: 22px; background: #F0F0F0; border-radius: 6px; overflow: hidden; position: relative;
+}
+.style-b .rank-bar-fill {
+  height: 100%; border-radius: 6px; display: flex; align-items: center;
+  justify-content: space-between; padding: 0 10px; font-size: 11px; font-weight: 600;
+}
+.style-b .bar-chart {
+  display: flex; align-items: flex-end; justify-content: space-evenly; height: 120px;
+  gap: 4px; padding: 0 8px;
+}
+.style-b .bar-col {
+  display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0;
+}
+.style-b .bar {
+  width: 100%; max-width: 32px; background: #5C6BC0;
+  border-radius: 4px 4px 0 0; transition: height 0.3s;
+}
+.style-b .bar-label {
+  font-size: 10px; color: #999; margin-top: 4px;
+}
+
+/* ===== 风格 C — 深色主题（改进版） ===== */
+.style-c { background: #1A1A2E; }
+.style-c .card-overview-c {
+  background: linear-gradient(135deg, #0F3460 0%, #16213E 100%);
+  border-radius: 16px;
+  padding: 20px;
+  color: white;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.style-c .card-overview-c .label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.6);
+}
+.style-c .card-overview-c .balance {
+  font-size: 36px;
+  font-weight: 800;
+  margin: 8px 0 16px;
+}
+.style-c .card-overview-c .row {
+  display: flex;
+  justify-content: space-around;
+}
+.style-c .card-overview-c .col { text-align: center; }
+.style-c .card-overview-c .col .sub-label {
+  font-size: 11px;
+  color: rgba(255,255,255,0.45);
+  margin-bottom: 4px;
+}
+.style-c .card-overview-c .col .expense {
+  font-size: 17px;
+  font-weight: 700;
+  color: #EF5350;
+}
+.style-c .card-overview-c .col .income {
+  font-size: 17px;
+  font-weight: 700;
+  color: #66BB6A;
+}
+.style-c .card-section-c {
+  background: #16213E;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.style-c .card-section-c .sec-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #ccc;
+}
+.style-c .rank-item {
+  display: flex; align-items: center; margin-bottom: 8px;
+}
+.style-c .rank-item .name {
+  width: 56px; font-size: 13px; color: #aaa;
+}
+.style-c .rank-bar-bg {
+  flex: 1; height: 22px; background: rgba(255,255,255,0.08); border-radius: 6px; overflow: hidden; position: relative;
+}
+.style-c .rank-bar-fill {
+  height: 100%; border-radius: 6px; display: flex; align-items: center;
+  justify-content: space-between; padding: 0 10px; font-size: 11px; font-weight: 600;
+  color: white;
+}
+.style-c .bar-chart {
+  display: flex; align-items: flex-end; justify-content: space-evenly; height: 120px;
+  gap: 4px; padding: 0 8px;
+}
+.style-c .bar-col {
+  display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0;
+}
+.style-c .bar {
+  width: 100%; max-width: 32px; background: #5C6BC0;
+  border-radius: 4px 4px 0 0; transition: height 0.3s;
+}
+.style-c .bar-label {
+  font-size: 10px; color: #666; margin-top: 4px;
+}
+
+/* ===== 柱状图自适应演示 ===== */
+.adaptive-demo {
+  background: white; border-radius: 12px; padding: 16px; margin-top: 16px;
+}
+.adaptive-demo h3 { font-size: 14px; margin-bottom: 8px; color: #555; }
+.adaptive-demo .desc { font-size: 12px; color: #999; margin-bottom: 12px; }
+
+/* ===== 统计页 Demo ===== */
+.stat-panel {
+  background: white; border-radius: 16px; padding: 20px; margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.stat-panel h3 {
+  font-size: 16px; font-weight: 700; margin-bottom: 16px; color: #333;
+}
+.stat-header {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+}
+.stat-header .tabs { display: flex; gap: 8px; }
+.stat-header .tab {
+  padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 600;
+  cursor: pointer; border: 1px solid #ddd;
+}
+.stat-header .tab.active {
+  background: #E53935; color: white; border-color: #E53935;
+}
+.stat-header .tab.income-tab {
+  background: transparent; color: #666;
+}
+.stat-header .tab.income-tab.active {
+  background: #43A047; color: white; border-color: #43A047;
+}
+.stat-totals {
+  display: flex; justify-content: center; gap: 40px; margin-bottom: 20px;
+}
+.stat-totals .total-item { text-align: center; }
+.stat-totals .total-item .label { font-size: 12px; color: #999; }
+.stat-totals .total-item .value {
+  font-size: 22px; font-weight: 700; margin-top: 4px;
+}
+.stat-totals .total-item .value.red { color: #E53935; }
+.stat-totals .total-item .value.green { color: #43A047; }
+
+/* 环形图 */
+.donut-section { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 16px; }
+.donut-chart { position: relative; width: 140px; height: 140px; flex-shrink: 0; }
+.donut-chart svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.donut-chart .center-text {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  text-align: center;
+}
+.donut-chart .center-text .total-label { font-size: 11px; color: #999; }
+.donut-chart .center-text .total-value { font-size: 15px; font-weight: 700; color: #333; }
+.donut-legend { flex: 1; }
+.donut-legend .legend-item {
+  display: flex; align-items: center; margin-bottom: 6px; font-size: 12px;
+}
+.donut-legend .legend-dot {
+  width: 8px; height: 8px; border-radius: 2px; margin-right: 8px; flex-shrink: 0;
+}
+.donut-legend .legend-name { flex: 1; color: #555; }
+.donut-legend .legend-val { color: #999; margin-left: 8px; }
+
+/* 条形图 */
+.comp-bar-item { margin-bottom: 6px; }
+.comp-bar-header {
+  display: flex; align-items: center; margin-bottom: 3px;
+}
+.comp-bar-header .cname { font-size: 13px; font-weight: 500; width: 56px; color: #555; }
+.comp-bar-header .camount { font-size: 12px; color: #999; flex: 1; text-align: right; }
+.comp-bar-bg {
+  height: 24px; background: #EEE; border-radius: 6px; overflow: hidden; position: relative;
+}
+.comp-bar-fill {
+  height: 100%; border-radius: 6px; display: flex; align-items: center;
+  padding: 0 10px; font-size: 11px; font-weight: 600;
+}
+
+/* ===== 流水列表 Demo ===== */
+.txn-panel {
+  background: white; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.txn-topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 16px; background: #FAFAFA; border-bottom: 1px solid #EEE;
+}
+.txn-topbar .title { font-size: 17px; font-weight: 700; }
+.txn-bottombar {
+  display: flex; align-items: center; padding: 6px 12px;
+  border-top: 1px solid #EEE; gap: 8px;
+}
+.txn-bottombar .btn {
+  padding: 6px 10px; border-radius: 6px; font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none; background: transparent;
+}
+.txn-bottombar .btn.primary { color: #5C6BC0; font-weight: 700; }
+.txn-bottombar .time-nav {
+  display: flex; align-items: center; gap: 4px; margin-left: auto;
+}
+.txn-bottombar .time-nav .arrow {
+  font-size: 18px; cursor: pointer; color: #999; padding: 2px 6px;
+}
+.txn-bottombar .time-nav .label {
+  font-size: 13px; font-weight: 600; color: #5C6BC0; min-width: 80px; text-align: center;
+}
+.txn-group-header {
+  display: flex; align-items: center; padding: 10px 16px;
+  background: #F5F5F5; font-size: 13px; font-weight: 700;
+  cursor: pointer;
+}
+.txn-group-header .arrow-icon { margin-right: 6px; font-size: 14px; }
+.txn-group-header .label { flex: 1; }
+.txn-group-header .count { color: #999; font-size: 12px; margin-right: 12px; }
+.txn-group-header .sum-expense { color: #E53935; font-size: 12px; }
+.txn-group-header .sum-income { color: #43A047; font-size: 12px; margin-left: 8px; }
+.txn-item {
+  display: flex; align-items: center; padding: 10px 16px; border-bottom: 1px solid #F0F0F0;
+}
+.txn-item .icon-box {
+  width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center;
+  justify-content: center; font-size: 16px; font-weight: 700; margin-right: 12px; flex-shrink: 0;
+}
+.txn-item .icon-box.expense { background: #FFEBEE; color: #E53935; }
+.txn-item .icon-box.income { background: #E8F5E9; color: #43A047; }
+.txn-item .info { flex: 1; min-width: 0; }
+.txn-item .info .cat { font-size: 14px; color: #333; }
+.txn-item .info .meta { font-size: 12px; color: #999; margin-top: 2px; }
+.txn-item .amount { font-size: 15px; font-weight: 700; }
+.txn-item .amount.expense { color: #E53935; }
+.txn-item .amount.income { color: #43A047; }
+
+/* ===== 风格 B 改进版（纯白底简约） ===== */
+.style-b2 { background: #F5F5F5; }
+.style-b2 .card-overview-b2 {
+  background: linear-gradient(135deg, #5C6BC0 0%, #7E57C2 100%);
+  border-radius: 16px;
+  padding: 20px;
+  color: white;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(92,107,192,0.3);
+}
+.style-b2 .card-overview-b2 .label {
+  font-size: 13px;
+  color: rgba(255,255,255,0.8);
+}
+.style-b2 .card-overview-b2 .balance {
+  font-size: 38px;
+  font-weight: 800;
+  margin: 8px 0 20px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+.style-b2 .card-overview-b2 .row {
+  display: flex;
+  justify-content: space-around;
+}
+.style-b2 .card-overview-b2 .col { text-align: center; }
+.style-b2 .card-overview-b2 .col .sub-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.65);
+  margin-bottom: 4px;
+}
+.style-b2 .card-overview-b2 .col .expense {
+  font-size: 18px;
+  font-weight: 700;
+  color: #FF8A80;
+}
+.style-b2 .card-overview-b2 .col .income {
+  font-size: 18px;
+  font-weight: 700;
+  color: #A5D6A7;
+}
+.style-b2 .card-section-b2 {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 12px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.style-b2 .card-section-b2 .sec-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  color: #444;
+}
+.style-b2 .rank-item {
+  display: flex; align-items: center; margin-bottom: 8px;
+}
+.style-b2 .rank-item .name {
+  width: 56px; font-size: 13px; color: #555;
+}
+.style-b2 .rank-bar-bg {
+  flex: 1; height: 22px; background: #F0F0F0; border-radius: 6px; overflow: hidden; position: relative;
+}
+.style-b2 .rank-bar-fill {
+  height: 100%; border-radius: 6px; display: flex; align-items: center;
+  justify-content: space-between; padding: 0 10px; font-size: 11px; font-weight: 600;
+  color: white;
+}
+
+/* ===== 共用组件 ===== */
+.color-1 { background: #5C6BC0; } .color-2 { background: #26A69A; }
+.color-3 { background: #FF7043; } .color-4 { background: #AB47BC; }
+.color-5 { background: #42A5F5; }
+.tx-color-1 { background: #FF7043; } .tx-color-2 { background: #26A69A; }
+.tx-color-3 { background: #AB47BC; } .tx-color-4 { background: #42A5F5; }
+.tx-color-5 { background: #EC407A; }
+</style>
+</head>
+<body>
+
+<h1 style="text-align:center; margin-bottom: 8px; color: #333;">MyPurse UI 风格 Demo v2</h1>
+<p style="text-align:center; color: #999; font-size: 13px; margin-bottom: 20px;">根据反馈调整：对比度增强 / 支出收入分色 / TOP5 彩色 / 柱状图单色 / 统计页+流水页 Demo</p>
+
+<!-- ========== 首页概览卡片对比 ========== -->
+<div class="section-title">🏠 首页 — 概览卡片对比</div>
+<div class="demo-grid">
+  <!-- 风格 B 改进版 -->
+  <div class="panel style-b2">
+    <h2>风格 B · 改进版（紫蓝渐变底 + 白色文字 + 支出收入分色）</h2>
+    <div class="card-overview-b2">
+      <div class="label">当前结余</div>
+      <div class="balance">¥12,580.50</div>
+      <div class="row">
+        <div class="col">
+          <div class="sub-label">本月支出</div>
+          <div class="expense">-¥3,420.00</div>
+        </div>
+        <div class="col">
+          <div class="sub-label">本月收入</div>
+          <div class="income">+¥8,500.00</div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:11px; color:#888; margin-top:8px;">
+      ✅ 白底渐变 + 深色文字对比度高<br>
+      ✅ 支出=浅红(#FF8A80)，收入=浅绿(#A5D6A7)，区分明显
+    </p>
+  </div>
+
+  <!-- 风格 C 改进版 -->
+  <div class="panel style-c">
+    <h2 style="color:#ccc;">风格 C · 改进版（深色底 + 支出收入分色）</h2>
+    <div class="card-overview-c">
+      <div class="label">当前结余</div>
+      <div class="balance">¥12,580.50</div>
+      <div class="row">
+        <div class="col">
+          <div class="sub-label">本月支出</div>
+          <div class="expense">-¥3,420.00</div>
+        </div>
+        <div class="col">
+          <div class="sub-label">本月收入</div>
+          <div class="income">+¥8,500.00</div>
+        </div>
+      </div>
+    </div>
+    <p style="font-size:11px; color:#888; margin-top:8px;">
+      ✅ 深色主题对比度天然高<br>
+      ✅ 支出=红(#EF5350)，收入=绿(#66BB6A)，不再全白
+    </p>
+  </div>
+</div>
+
+<!-- ========== 首页 TOP5 彩色排行 ========== -->
+<div class="section-title">🏠 首页 — 本月支出 TOP5（彩色区分）</div>
+<div class="demo-grid">
+  <div class="panel style-b2">
+    <h2>风格 B 改进版</h2>
+    <div class="card-section-b2">
+      <div class="sec-title">本月支出排行</div>
+      <div class="rank-item">
+        <span class="name">餐饮</span>
+        <div class="rank-bar-bg"><div class="rank-bar-fill color-1" style="width:100%">¥1,280.00 &nbsp; 32.5%</div></div>
+      </div>
+      <div class="rank-item">
+        <span class="name">交通</span>
+        <div class="rank-bar-bg"><div class="rank-bar-fill color-2" style="width:72%">¥920.00 &nbsp; 23.4%</div></div>
+      </div>
+      <div class="rank-item">
+        <span class="name">购物</span>
+        <div class="rank-bar-bg"><div class="rank-bar-fill color-3" style="width:55%">¥700.00 &nbsp; 17.8%</div></div>
+      </div>
+      <div class="rank-item">
+        <span class="name">娱乐</span>
+        <div class="rank-bar-bg"><div class="rank-bar-fill color-4" style="width:35%">¥450.00 &nbsp; 11.4%</div></div>
+      </div>
+      <div class="rank-item">
+        <span class="name">日用</</span>
+        <div class="rank-bar-bg"><div class="rank-bar-fill color-5" style="width:23%">¥290.00 &nbsp; 7.4%</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel style-c">
+    <h2 style="color:#ccc;">风格 C 改进版</h2>
+    <div class="card-section-c">
+      <div class="sec-title">本月支出排行</div>
+      <div class="rank-item">
+        <span class="name">餐饮</span>
+        <div class="rank-bar-bg"><div class="rank-bar-fill tx-color-1" style="width:100%">¥1,280.00 &nbsp; 32.5%</div></div>
+      </div>
+      <div class="rank-item">
+        <span class="name">交通</span>
+        <div class="rank-bar-bg"><div class="rank-bar-fill tx-color-2" style="width:72%">¥920.00 &nbsp; 23.4%</div></div>
+      </div>
+      <div class="rank-item">
+        <span class="name">购物</span>
+        <div class="rank-bar-bg"><div class="rank-bar-fill tx-color-3" style="width:55%">¥700.00 &nbsp; 17.8%</div></div>
+      </div>
+      <div class="rank-item">
+        <span class="name">娱乐</span>
+        <div class="rank-bar-bg"><div class="rank-bar-fill tx-color-4" style="width:35%">¥450.00 &nbsp; 11.4%</div></div>
+      </div>
+      <div class="rank-item">
+        <span class="name">日用</span>
+        <div class="rank-bar-bg"><div class="rank-bar-fill tx-color-5" style="width:23%">¥290.00 &nbsp; 7.4%</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 首页 趋势图（柱状图单色 + 自适应） ========== -->
+<div class="section-title">🏠 首页 — 近6月趋势（柱状图单色蓝 + 自适应宽度演示）</div>
+<div class="demo-grid">
+  <div class="panel style-b2">
+    <h2>6 个月数据 — 柱子自动均分宽度</h2>
+    <div class="card-section-b2">
+      <div class="sec-title">近 6 个月支出趋势</div>
+      <div class="bar-chart">
+        <div class="bar-col"><div class="bar" style="height:65%"></div><div class="bar-label">1月</div></div>
+        <div class="bar-col"><div class="bar" style="height:82%"></div><div class="bar-label">2月</div></div>
+        <div class="bar-col"><div class="bar" style="height:45%"></div><div class="bar-label">3月</div></div>
+        <div class="bar-col"><div class="bar" style="height:100%"></div><div class="bar-label">4月</div></div>
+        <div class="bar-col"><div class="bar" style="height:70%"></div><div class="bar-label">5月</div></div>
+        <div class="bar-col"><div class="bar" style="height:55%"></div><div class="bar-label">6月</div></div>
+      </div>
+      <p style="font-size:11px; color:#999; margin-top:8px;">全部蓝色(#5C6BC0)，不花哨</p>
+    </div>
+  </div>
+
+  <div class="panel style-b2">
+    <h2>31 天数据 — 柱子自动变窄，标签稀疏化</h2>
+    <div class="card-section-b2">
+      <div class="sec-title">近 31 天支出趋势</div>
+      <div class="bar-chart" style="height:100px;">
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:50%"></div><div class="bar-label">1</div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:70%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:35%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:85%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:60%"></div><div class="bar-label">5</div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:45%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:90%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:55%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:30%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:75%"></div><div class="bar-label">10</div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:40%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:65%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:80%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:48%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:100%"></div><div class="bar-label">15</div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:55%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:70%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:35%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:60%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:85%"></div><div class="bar-label">20</div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:45%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:50%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:75%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:30%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:90%"></div><div class="bar-label">25</div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:55%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:65%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:40%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:70%"></div><div class="bar-label"></div></div>
+        <div class="bar-col"><div class="bar" style="max-width:18px; height:50%"></div><div class="bar-label">30</div></div>
+      </div>
+      <p style="font-size:11px; color:#999; margin-top:8px;">
+        ✅ 31天数据时柱子自动收窄<br>
+        ✅ X轴标签每隔5天显示一次，不拥挤<br>
+        ✅ 当前代码已支持（barSpacing = width / (count+1)，barW = min(spacing*0.6, 28dp)）
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 统计页 Demo ========== -->
+<div class="section-title">📊 统计页 — 分类构成（环形图 + 条形图）</div>
+
+<div class="stat-panel">
+  <div class="stat-header">
+    <div class="tabs">
+      <span class="tab active">支出</span>
+      <span class="tab income-tab">收入</span>
+    </div>
+    <span style="font-size:13px; color:#5C6BC0; cursor:pointer;">📊 ▦</span>
+  </div>
+
+  <div class="stat-totals">
+    <div class="total-item">
+      <div class="label">总支出</div>
+      <div class="value red">-¥3,420</div>
+    </div>
+    <div class="total-item">
+      <div class="label">总收入</div>
+      <div class="value green">+¥8,500</div>
+    </div>
+  </div>
+
+  <!-- 环形图 + 图例 -->
+  <div class="donut-section">
+    <div class="donut-chart">
+      <svg viewBox="0 0 100 100">
+        <!-- 环形图用 stroke-dasharray 模拟 -->
+        <circle cx="50" cy="50" r="32" fill="none" stroke="#E0E0E0" stroke-width="14"/>
+        <!-- 餐饮 37% -->
+        <circle cx="50" cy="50" r="32" fill="none" stroke="#5C6BC0" stroke-width="14"
+          stroke-dasharray="74.4 200" stroke-dashoffset="0" stroke-linecap="butt"/>
+        <!-- 交通 27% (从74.4开始) -->
+        <circle cx="50" cy="50" r="32" fill="none" stroke="#26A69A" stroke-width="14"
+          stroke-dasharray="54.3 200" stroke-dashoffset="-74.4" stroke-linecap="butt"/>
+        <!-- 购物 20% (从128.7开始) -->
+        <circle cx="50" cy="50" r="32" fill="none" stroke="#FF7043" stroke-width="14"
+          stroke-dasharray="40.2 200" stroke-dashoffset="-128.7" stroke-linecap="butt"/>
+        <!-- 娱乐 10% (从168.9开始) -->
+        <circle cx="50" cy="50" r="32" fill="none" stroke="#AB47BC" stroke-width="14"
+          stroke-dasharray="20.1 200" stroke-dashoffset="-168.9" stroke-linecap="butt"/>
+        <!-- 其他 6% (从189开始) -->
+        <circle cx="50" cy="50" r="32" fill="none" stroke="#9E9E9E" stroke-width="14"
+          stroke-dasharray="12.1 200" stroke-dashoffset="-189" stroke-linecap="butt"/>
+      </svg>
+      <div class="center-text">
+        <div class="total-label">总支出</div>
+        <div class="total-value">¥3,420</div>
+      </div>
+    </div>
+    <div class="donut-legend">
+      <div class="legend-item">
+        <span class="legend-dot" style="background:#5C6BC0"></span>
+        <span class="legend-name">餐饮</span>
+        <span class="legend-val">¥1,280.00  37.4%</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot" style="background:#26A69A"></span>
+        <span class="legend-name">交通</span>
+        <span class="legend-val">¥920.00  26.9%</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot" style="background:#FF7043"></span>
+        <span class="legend-name">购物</span>
+        <span class="legend-val">¥700.00  20.5%</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot" style="background:#AB47BC"></span>
+        <span class="legend-name">娱乐</span>
+        <span class="legend-val">¥350.00  10.2%</span>
+      </div>
+      <div class="legend-item">
+        <span class="legend-dot" style="background:#9E9E9E"></span>
+        <span class="legend-name">日用</span>
+        <span class="legend-val">¥170.00  5.0%</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 条形图模式切换 -->
+  <p style="font-size:13px; font-weight:600; color:#555; margin: 16px 0 8px;">📊 条形图模式（已显示百分比 + 金额）</p>
+  <div class="comp-bar-item">
+    <div class="comp-bar-header">
+      <span class="cname">餐饮</span>
+      <span class="camount">¥1,280.00  37.4%</span>
+    </div>
+    <div class="comp-bar-bg">
+      <div class="comp-bar-fill color-1" style="width:100%; color:white;">¥1,280.00  &nbsp; 37.4%</div>
+    </div>
+  </div>
+  <div class="comp-bar-item">
+    <div class="comp-bar-header">
+      <span class="cname">交通</span>
+      <span class="camount">¥920.00  26.9%</span>
+    </div>
+    <div class="comp-bar-bg">
+      <div class="comp-bar-fill color-2" style="width:72%; color:white;">¥920.00  &nbsp; 26.9%</div>
+    </div>
+  </div>
+  <div class="comp-bar-item">
+    <div class="comp-bar-header">
+      <span class="cname">购物</span>
+      <span class="camount">¥700.00  20.5%</span>
+    </div>
+    <div class="comp-bar-bg">
+      <div class="comp-bar-fill color-3" style="width:55%; color:#333;">¥700.00  &nbsp; 20.5%</div>
+    </div>
+  </div>
+  <div class="comp-bar-item">
+    <div class="comp-bar-header">
+      <span class="cname">娱乐</span>
+      <span class="camount">¥350.00  10.2%</span>
+    </div>
+    <div class="comp-bar-bg">
+      <div class="comp-bar-fill color-4" style="width:28%; color:#333;">¥350.00  &nbsp; 10.2%</div>
+    </div>
+  </div>
+  <div class="comp-bar-item">
+    <div class="comp-bar-header">
+      <span class="cname">日用</span>
+      <span class="camount">¥170.00  5.0%</span>
+    </div>
+    <div class="comp-bar-bg">
+      <div class="comp-bar-fill color-5" style="width:14%; color:#333;">¥170.00  &nbsp; 5.0%</div>
+    </div>
+  </div>
+
+  <p style="font-size:11px; color:#999; margin-top:12px;">
+    ✅ 条形图当前已有百分比显示<br>
+    ⚠️ 条形高度 28dp 可能偏粗 — 可以调整为 22-24dp<br>
+    ✅ 分类用不同颜色（环形图+条形图都用 donutColors 彩色）
+  </p>
+</div>
+
+<!-- ========== 统计页 趋势图 ========== -->
+<div class="section-title">📊 统计页 — 趋势柱状图</div>
+<div class="stat-panel">
+  <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+    <span style="font-size:18px; color:#5C6BC0; cursor:pointer;">▦</span>
+  </div>
+  <div class="bar-chart" style="height:160px;">
+    <div class="bar-col"><div class="bar" style="height:55%;max-width:36px;background:#5C6BC0"></div><div class="bar-label">1月</div></div>
+    <div class="bar-col"><div class="bar" style="height:80%;max-width:36px;background:#5C6BC0"></div><div class="bar-label">2月</div></div>
+    <div class="bar-col"><div class="bar" style="height:45%;max-width:36px;background:#5C6BC0"></div><div class="bar-label">3月</div></div>
+    <div class="bar-col"><div class="bar" style="height:100%;max-width:36px;background:#5C6BC0"></div><div class="bar-label">4月</div></div>
+    <div class="bar-col"><div class="bar" style="height:65%;max-width:36px;background:#5C6BC0"></div><div class="bar-label">5月</div></div>
+    <div class="bar-col"><div class="bar" style="height:90%;max-width:36px;background:#5C6BC0"></div><div class="bar-label">6月</div></div>
+  </div>
+  <div style="display:flex; justify-content:space-around; margin-top: 12px; padding: 0 20px;">
+    <div style="text-align:center;"><span style="font-size:11px; color:#999;">均值</span><br><span style="font-size:14px; font-weight:700; color:#5C6BC0;">¥2,285</span></div>
+    <div style="text-align:center;"><span style="font-size:11px; color:#999;">最高</span><br><span style="font-size:14px; font-weight:700; color:#E53935;">¥4,560</span></div>
+    <div style="text-align:center;"><span style="font-size:11px; color:#999;">最低</span><br><span style="font-size:14px; font-weight:700; color:#43A047;">¥1,020</span></div>
+  </div>
+  <p style="font-size:11px; color:#999; margin-top:12px;">
+    ✅ 柱状图统一蓝色(#5C6BC0)<br>
+    ✅ 选中柱子变橙色(ChartOrange) — 与当前实现一致<br>
+    ⚠️ 当前 barW 上限 28dp — 6根时够宽，31天时会缩到约 6-8dp 每条
+  </p>
+</div>
+
+<!-- ========== 流水列表 Demo ========== -->
+<div class="section-title">📋 流水列表页</div>
+<div class="txn-panel">
+  <!-- 顶部栏 -->
+  <div class="txn-topbar">
+    <span style="font-size:18px;">←</span>
+    <span class="title">流水记录</span>
+    <span style="font-size:18px;">🔍</span>
+  </div>
+
+  <!-- 分组 Header -->
+  <div class="txn-group-header">
+    <span class="arrow-icon">▼</span>
+    <span class="label">06月17日 周二</span>
+    <span class="count">3笔</span>
+    <span class="sum-expense">支出 ¥156.00</span>
+    <span class="sum-income">收入 ¥500.00</span>
+  </div>
+
+  <!-- 交易条目 -->
+  <div class="txn-item">
+    <div class="icon-box expense">餐</div>
+    <div class="info">
+      <div class="cat">餐饮 · 午餐</div>
+      <div class="meta">17日 12:30 &nbsp; 公司食堂</div>
+    </div>
+    <div class="amount expense">-¥35.00</div>
+  </div>
+  <div class="txn-item">
+    <div class="icon-box income">薪</div>
+    <div class="info">
+      <div class="cat">收入 · 工资</div>
+      <div class="meta">17日 09:00</div>
+    </div>
+    <div class="amount income">+¥500.00</div>
+  </div>
+  <div class="txn-item">
+    <div class="icon-box expense">交</div>
+    <div class="info">
+      <div class="cat">交通 · 地铁</div>
+      <div class="meta">17日 08:15</div>
+    </div>
+    <div class="amount expense">-¥6.00</div>
+  </div>
+
+  <!-- 分组 Header 2 -->
+  <div class="txn-group-header">
+    <span class="arrow-icon">▶</span>
+    <span class="label">06月16日 周一</span>
+    <span class="count">4笔</span>
+    <span class="sum-expense">支出 ¥286.50</span>
+  </div>
+
+  <div class="txn-item" style="opacity:0.4">
+    <div class="icon-box expense">购</div>
+    <div class="info">
+      <div class="cat">购物 · 数码</div>
+      <div class="meta">16日 19:20 &nbsp; 蓝牙耳机</div>
+    </div>
+    <div class="amount expense">-¥199.00</div>
+  </div>
+  <div class="txn-item" style="opacity:0.4">
+    <div class="icon-box expense">餐</div>
+    <div class="info">
+      <div class="cat">餐饮 · 晚餐</div>
+      <div class="meta">16日 18:30</div>
+    </div>
+    <div class="amount expense">-¥48.00</div>
+  </div>
+
+  <!-- 底部工具栏 -->
+  <div class="txn-bottombar">
+    <button class="btn primary">按月 ▼</button>
+    <button class="btn">时间 ▼</button>
+    <div class="time-nav">
+      <span class="arrow">‹</span>
+      <span class="label">2026年6月</span>
+      <span class="arrow">›</span>
+    </div>
+  </div>
+</div>
+
+<p style="font-size:12px; color:#999; margin-top:10px;">
+  ✅ 支出/收入用红/绿色区分（条目金额 + 分组汇总）<br>
+  ✅ 分类首字图标区分红底/绿底<br>
+  ✅ 可折叠分组，每组显示汇总金额<br>
+  💡 美化方向：增加卡片间距、圆角、阴影、条目间微妙的背景色交替
+</p>
+
+<!-- ========== 总结 ========== -->
+<div class="section-title">📝 汇总对比 & 待确认事项</div>
+<div style="background:white; border-radius:16px; padding:20px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); line-height:1.8;">
+  <table style="width:100%; border-collapse:collapse; font-size:14px;">
+    <thead>
+      <tr style="border-bottom:2px solid #EEE;">
+        <th style="text-align:left; padding:8px;">特性</th>
+        <th style="text-align:center; padding:8px;">当前代码</th>
+        <th style="text-align:center; padding:8px;">风格 B 改进</th>
+        <th style="text-align:center; padding:8px;">风格 C 改进</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr style="border-bottom:1px solid #F0F0F0;">
+        <td style="padding:8px;">概览卡片背景</td>
+        <td style="text-align:center;color:#999;">primaryContainer（淡蓝）</td>
+        <td style="text-align:center;color:#5C6BC0;">紫蓝渐变底 + 白色文字</td>
+        <td style="text-align:center;color:#0F3460;">深蓝渐变底 + 白色文字</td>
+      </tr>
+      <tr style="border-bottom:1px solid #F0F0F0;">
+        <td style="padding:8px;">支出/收入颜色</td>
+        <td style="text-align:center;color:#E53935;">红/绿 ✅</td>
+        <td style="text-align:center;color:#FF8A80;">浅红/浅绿（渐变底上）</td>
+        <td style="text-align:center;color:#EF5350;">亮红/亮绿（深底上）</td>
+      </tr>
+      <tr style="border-bottom:1px solid #F0F0F0;">
+        <td style="padding:8px;">TOP5 排行颜色</td>
+        <td style="text-align:center;color:#E53935;">统一蓝色 ❌</td>
+        <td style="text-align:center;color:#5C6BC0;">5种彩色 ✅</td>
+        <td style="text-align:center;color:#0F3460;">5种彩色（霓虹风）✅</td>
+      </tr>
+      <tr style="border-bottom:1px solid #F0F0F0;">
+        <td style="padding:8px;">趋势柱状图</td>
+        <td style="text-align:center;color:#999;">蓝色 + 橙色（选中）</td>
+        <td style="text-align:center;color:#5C6BC0;">统一蓝色 ✅</td>
+        <td style="text-align:center;color:#5C6BC0;">统一蓝色 ✅</td>
+      </tr>
+      <tr style="border-bottom:1px solid #F0F0F0;">
+        <td style="padding:8px;">柱子自适应宽度</td>
+        <td style="text-align:center;color:#43A047;">已支持 ✅</td>
+        <td style="text-align:center;">—</td>
+        <td style="text-align:center;">—</td>
+      </tr>
+      <tr style="border-bottom:1px solid #F0F0F0;">
+        <td style="padding:8px;">统计条形图宽度</td>
+        <td style="text-align:center;color:#FB8C00;">28dp（偏粗）⚠️</td>
+        <td style="text-align:center;color:#5C6BC0;">可调至 22-24dp</td>
+        <td style="text-align:center;color:#5C6BC0;">可调至 22-24dp</td>
+      </tr>
+      <tr style="border-bottom:1px solid #F0F0F0;">
+        <td style="padding:8px;">统计条形图百分比</td>
+        <td style="text-align:center;color:#43A047;">已显示 ✅</td>
+        <td style="text-align:center;">—</td>
+        <td style="text-align:center;">—</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:20px; padding:16px; background:#F0F4FF; border-radius:12px; font-size:13px; line-height:1.8;">
+    <strong>🔍 待你确认：</strong><br>
+    1. <strong>风格 B vs C</strong>：B 偏暖明亮、C 偏酷深色，你更倾向哪个作为主风格？（或者 B 为主 + C 作为暗色模式？）<br>
+    2. <strong>TOP5 彩色</strong>：5 种固定彩色（蓝/青/橙/紫/天蓝），还是按分类类型映射？（如餐饮=橙、交通=蓝）<br>
+    3. <strong>统计条形图宽度</strong>：从 28dp 调到 22dp 还是 24dp？<br>
+    4. <strong>流水列表</strong>：目前看起来有什么想改的吗？（条目间距、分组头样式、颜色等）<br>
+    5. <strong>概览卡片</strong>：B 的紫蓝渐变底你喜欢吗？还是想要更简洁的纯色？
+  </div>
+</div>
+
+</body>
+</html>

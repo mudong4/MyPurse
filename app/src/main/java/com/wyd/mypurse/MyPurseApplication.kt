@@ -2,7 +2,10 @@ package com.wyd.mypurse
 
 import android.app.Application
 import android.os.StrictMode
+import android.os.StrictMode.ThreadPolicy
+import android.os.StrictMode.VmPolicy
 import android.util.Log
+import com.wyd.mypurse.BuildConfig
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CancellationException
 
@@ -13,7 +16,27 @@ import kotlinx.coroutines.CancellationException
 @HiltAndroidApp
 class MyPurseApplication : Application() {
     override fun onCreate() {
+        // StrictMode 仅在 debug 构建中启用，用于检测主线程违规操作
+        if (BuildConfig.DEBUG) {
+            StrictMode.setThreadPolicy(
+                ThreadPolicy.Builder()
+                    .detectDiskReads()
+                    .detectDiskWrites()
+                    .detectNetwork()
+                    .penaltyLog()
+                    .build()
+            )
+            StrictMode.setVmPolicy(
+                VmPolicy.Builder()
+                    .detectLeakedSqlLiteObjects()
+                    .detectLeakedClosableObjects()
+                    .penaltyLog()
+                    .build()
+            )
+        }
+
         super.onCreate()
+
         // 设置全局未捕获异常处理器：静默处理 CancellationException，
         // 避免 Android 系统弹出 "StandaloneCoroutine was cancelled" 等调试 Toast
         val originalHandler = Thread.getDefaultUncaughtExceptionHandler()

@@ -63,6 +63,7 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.Category
+import com.wyd.mypurse.ui.components.EmptyStateView
 import kotlin.math.roundToInt
 
 /**
@@ -132,17 +133,27 @@ fun CategoryManageScreen(
                 )
             }
 
-            // 拖拽排序提示
-            if (categories.isNotEmpty()) {
-                Text(
-                    text = "长按拖拽分类可调整排序",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+            // 空状态
+            if (categories.isEmpty() && !uiState.isLoading) {
+                EmptyStateView(
+                    message = if (uiState.selectedTab == -1) "暂无支出分类" else "暂无收入分类",
+                    actionLabel = "新增分类",
+                    onAction = { viewModel.onShowAddDialog(null) }
                 )
+            } else {
+                // 拖拽排序提示
+                if (categories.isNotEmpty()) {
+                    Text(
+                        text = "长按拖拽分类可调整排序",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                }
             }
 
             // 分类列表（支持拖拽排序）
+            if (categories.isNotEmpty()) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
@@ -224,6 +235,7 @@ fun CategoryManageScreen(
                     }
                 }
             }
+            } // end if (categories.isNotEmpty())
         }
     }
 

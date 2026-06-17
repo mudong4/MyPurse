@@ -85,4 +85,8 @@ interface CategoryDefDao {
             updateSortOrder(id, order)
         }
     }
+
+    /** 清空全部分类记录 */
+    @Query("DELETE FROM category_def")
+    suspend fun deleteAllCategories()
 }

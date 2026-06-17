@@ -30,11 +30,8 @@ import com.wyd.mypurse.ui.addtransaction.AddTransactionScreen
 import com.wyd.mypurse.ui.budget.BudgetScreen
 import com.wyd.mypurse.ui.categorymanage.CategoryManageScreen
 import com.wyd.mypurse.ui.home.HomeScreen
-import com.wyd.mypurse.ui.recurring.RecurringTemplateEditScreen
-import com.wyd.mypurse.ui.recurring.RecurringTemplateListScreen
 import com.wyd.mypurse.ui.settings.SettingsScreen
 import com.wyd.mypurse.ui.statistics.StatisticsScreen
-import com.wyd.mypurse.ui.transactionlist.TransactionDetailScreen
 import com.wyd.mypurse.ui.transactionlist.TransactionListScreen
 
 /**
@@ -68,11 +65,8 @@ fun MyPurseNavHost(
     val hideBottomBarRoutes = setOf(
         Route.AddTransaction::class,
         Route.TransactionList::class,
-        Route.TransactionDetail::class,
         Route.CategoryManage::class,
         Route.Budget::class,
-        Route.RecurringTemplateList::class,
-        Route.RecurringTemplateEdit::class,
         Route.About::class,
         Route.Statistics::class,
     )
@@ -159,24 +153,19 @@ fun MyPurseNavHost(
                     onNavigateToBudget = {
                         navController.navigate(Route.Budget())
                     },
-                    onNavigateToRecurringTemplate = {
-                        navController.navigate(Route.RecurringTemplateList)
-                    },
                     onNavigateToAbout = {
                         navController.navigate(Route.About)
-                    },
-                    onExportCsv = { /* TODO: 阶段 4 */ },
-                    onImportCsv = { /* TODO: 阶段 4 */ },
-                    onClearAllData = { /* TODO: 阶段 5 */ }
+                    }
                 )
             }
 
-            // 记一笔页（隐藏底部导航栏）
+            // 记一笔页（隐藏底部导航栏）。新建/编辑共用
             composable<Route.AddTransaction> { backStackEntry ->
                 val route = backStackEntry.toRoute<Route.AddTransaction>()
                 AddTransactionScreen(
                     defaultFlowType = route.defaultFlowType,
                     defaultDate = route.defaultDate,
+                    transactionId = route.transactionId,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToCategoryManage = {
                         navController.navigate(Route.CategoryManage)
@@ -194,17 +183,8 @@ fun MyPurseNavHost(
                     timeRangeEnd = route.timeRangeEnd,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToEdit = { id ->
-                        navController.navigate(Route.TransactionDetail(transactionId = id))
+                        navController.navigate(Route.AddTransaction(transactionId = id))
                     }
-                )
-            }
-
-            // 流水详情页
-            composable<Route.TransactionDetail> { backStackEntry ->
-                val route = backStackEntry.toRoute<Route.TransactionDetail>()
-                TransactionDetailScreen(
-                    transactionId = route.transactionId,
-                    onNavigateBack = { navController.popBackStack() }
                 )
             }
 
@@ -221,25 +201,6 @@ fun MyPurseNavHost(
                 BudgetScreen(
                     year = route.year,
                     month = route.month,
-                    onNavigateBack = { navController.popBackStack() }
-                )
-            }
-
-            // 固定收支模板列表页
-            composable<Route.RecurringTemplateList> {
-                RecurringTemplateListScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToEdit = { templateId ->
-                        navController.navigate(Route.RecurringTemplateEdit(templateId = templateId))
-                    }
-                )
-            }
-
-            // 固定收支模板编辑页
-            composable<Route.RecurringTemplateEdit> { backStackEntry ->
-                val route = backStackEntry.toRoute<Route.RecurringTemplateEdit>()
-                RecurringTemplateEditScreen(
-                    templateId = route.templateId,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

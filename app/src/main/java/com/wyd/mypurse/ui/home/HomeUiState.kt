@@ -18,4 +18,8 @@ data class HomeUiState(
     val topCategories: List<CategoryAmount> = emptyList(),
     val budget: BigDecimal? = null,
     val isLoading: Boolean = true
-)
+) {
+    /** 是否为全新用户（无任何记账记录）。趋势为空 + 余额为 0 时判定。 */
+    val isNewUser: Boolean
+        get() = !isLoading && trend.isEmpty() && balance == BigDecimal.ZERO
+}

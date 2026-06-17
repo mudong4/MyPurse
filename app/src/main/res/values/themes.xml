@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.MyPurse" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- 浅色主题：冷启动背景色与 Compose LightColorScheme.background 一致 -->
+    <style name="Theme.MyPurse" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#FFF8F9FA</item>
+        <item name="android:statusBarColor">#FFF8F9FA</item>
+        <item name="android:navigationBarColor">#FFFFFFFF</item>
+    </style>
+
 </resources>

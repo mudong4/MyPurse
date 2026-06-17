@@ -30,4 +30,8 @@ interface BudgetDao {
     /** 删除预算记录（取消预算） */
     @Delete
     suspend fun deleteBudget(budget: BudgetEntity)
+
+    /** 清空预算表 */
+    @Query("DELETE FROM budget")
+    suspend fun deleteAllBudgets()
 }

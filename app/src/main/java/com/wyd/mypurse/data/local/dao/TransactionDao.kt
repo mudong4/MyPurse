@@ -323,6 +323,28 @@ interface TransactionDao {
         ORDER BY year DESC
     """)
     suspend fun getAvailableYears(): List<Int>
+
+    // ========== 数据管理 ==========
+
+    /** 一次性获取全部交易记录（供 CSV 导出使用） */
+    @Query("SELECT * FROM `transaction` ORDER BY date DESC, create_time DESC")
+    suspend fun getAllTransactionsOnce(): List<TransactionEntity>
+
+    /** 一次性按时间范围获取交易记录（供 CSV 导出使用） */
+    @Query("""
+        SELECT * FROM `transaction`
+        WHERE date BETWEEN :rangeStart AND :rangeEnd
+        ORDER BY date DESC, create_time DESC
+    """)
+    suspend fun getTransactionsByRangeOnce(rangeStart: Long, rangeEnd: Long): List<TransactionEntity>
+
+    /** 清空全部交易记录 */
+    @Query("DELETE FROM `transaction`")
+    suspend fun deleteAllTransactions()
+
+    /** 获取总记录数 */
+    @Query("SELECT COUNT(*) FROM `transaction`")
+    suspend fun getTransactionCount(): Int
 }
 
 /**

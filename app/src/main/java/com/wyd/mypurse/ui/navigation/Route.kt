@@ -20,11 +20,12 @@ sealed class Route {
     @Serializable
     data object Settings : Route()
 
-    /** 记一笔页（独立路由，无底部导航栏） */
+    /** 记一笔页（独立路由，无底部导航栏）。编辑模式传入 transactionId > 0 */
     @Serializable
     data class AddTransaction(
         val defaultFlowType: String = "支出",
-        val defaultDate: Long = System.currentTimeMillis()
+        val defaultDate: Long = System.currentTimeMillis(),
+        val transactionId: Long = 0
     ) : Route()
 
     /** 流水列表页 */
@@ -45,22 +46,6 @@ sealed class Route {
     data class Budget(
         val year: Int? = null,
         val month: Int? = null
-    ) : Route()
-
-    /** 固定收支模板列表页 */
-    @Serializable
-    data object RecurringTemplateList : Route()
-
-    /** 固定收支模板新增/编辑页 */
-    @Serializable
-    data class RecurringTemplateEdit(
-        val templateId: Long = 0
-    ) : Route()
-
-    /** 流水详情页 */
-    @Serializable
-    data class TransactionDetail(
-        val transactionId: Long
     ) : Route()
 
     /** 关于页 */

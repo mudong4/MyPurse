@@ -74,6 +74,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.Transaction
 import com.wyd.mypurse.ui.components.ChineseDatePickerDialog
+import com.wyd.mypurse.ui.components.rememberDebounce
+import com.wyd.mypurse.ui.theme.AppExpenseLightBg
+import com.wyd.mypurse.ui.theme.AppExpenseRed
+import com.wyd.mypurse.ui.theme.AppIncomeGreen
+import com.wyd.mypurse.ui.theme.AppIncomeLightBg
 import java.math.BigDecimal
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
@@ -93,6 +98,7 @@ fun TransactionListScreen(
     viewModel: TransactionListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val debounce = rememberDebounce()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     var showDeleteDialog by remember { mutableStateOf<Transaction?>(null) }
@@ -180,10 +186,10 @@ fun TransactionListScreen(
                         day = uiState.currentDay,
                         weekDateRange = uiState.weekDateRange
                     ),
-                    onGranularitySelect = { viewModel.setGranularity(it) },
-                    onGroupModeSelect = { viewModel.setGroupMode(it) },
-                    onNavigateTime = { direction -> viewModel.navigateTime(direction) },
-                    onTimeLabelClick = { viewModel.toggleDatePicker() }
+                    onGranularitySelect = { debounce { viewModel.setGranularity(it) } },
+                    onGroupModeSelect = { debounce { viewModel.setGroupMode(it) } },
+                    onNavigateTime = { direction -> debounce { viewModel.navigateTime(direction) } },
+                    onTimeLabelClick = { debounce { viewModel.toggleDatePicker() } }
                 )
             }
         }
@@ -607,14 +613,14 @@ private fun CollapsibleGroupHeader(
                 Text(
                     text = "支出 $expenseStr",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFFE53935)
+                    color = AppExpenseRed
                 )
             }
             if (group.totalIncome > BigDecimal.ZERO) {
                 Text(
                     text = "收入 $incomeStr",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF43A047)
+                    color = AppIncomeGreen
                 )
             }
         }
@@ -647,7 +653,7 @@ private fun SwipeableTransactionItem(
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color(0xFFE53935))
+                    .background(AppExpenseRed)
                     .padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
@@ -675,7 +681,7 @@ private fun TransactionItem(
 ) {
     val dateFormat = remember { SimpleDateFormat("dd日 HH:mm", Locale.CHINA) }
     val isExpense = transaction.flowType == "支出"
-    val amountColor = if (isExpense) Color(0xFFE53935) else Color(0xFF43A047)
+    val amountColor = if (isExpense) AppExpenseRed else AppIncomeGreen
     val amountPrefix = if (isExpense) "-" else "+"
     val categoryText = buildString {
         append(transaction.categoryL1)
@@ -703,7 +709,7 @@ private fun TransactionItem(
                 modifier = Modifier
                     .size(40.dp)
                     .background(
-                        if (isExpense) Color(0xFFFFEBEE) else Color(0xFFE8F5E9),
+                        if (isExpense) AppExpenseLightBg else AppIncomeLightBg,
                         RoundedCornerShape(8.dp)
                     ),
                 contentAlignment = Alignment.Center
@@ -711,7 +717,7 @@ private fun TransactionItem(
                 Text(
                     text = transaction.categoryL1.take(1),
                     style = MaterialTheme.typography.titleMedium,
-                    color = if (isExpense) Color(0xFFE53935) else Color(0xFF43A047),
+                    color = if (isExpense) AppExpenseRed else AppIncomeGreen,
                     fontWeight = FontWeight.Bold
                 )
             }

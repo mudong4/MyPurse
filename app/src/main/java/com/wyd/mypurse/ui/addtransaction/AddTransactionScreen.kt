@@ -63,6 +63,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.Category
 import com.wyd.mypurse.domain.repository.FlowType
 import com.wyd.mypurse.ui.components.ChineseDatePickerDialog
+import com.wyd.mypurse.ui.components.EmptyStateText
+import com.wyd.mypurse.ui.components.rememberDebounce
 import java.text.DecimalFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -73,28 +75,35 @@ private val dateFormat = SimpleDateFormat("yyyy年M月d日 EEEE", Locale.CHINESE
 
 /**
  * 记一笔页 Screen。
- * 包含：顶部栏（关闭/保存并关闭）、金额输入、流水类型、分类选择、日期、备注、保存按钮。
- * 支持连续记账模式。
+ * 新建模式：金额输入、流水类型、分类选择、日期、备注、保存（支持连续记账）。
+ * 编辑模式（transactionId > 0）：预填已有记录，保存走 update，不显示"保存并继续"。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransactionScreen(
     defaultFlowType: String,
     defaultDate: Long,
+    transactionId: Long = 0,
     onNavigateBack: () -> Unit,
     onNavigateToCategoryManage: () -> Unit,
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val debounce = rememberDebounce()
     var showDatePicker by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
+    val isEditMode = transactionId > 0
 
-    // 初始化默认值
-    LaunchedEffect(defaultFlowType, defaultDate) {
-        viewModel.initialize(defaultFlowType, defaultDate)
+    // 编辑模式：加载已有记录
+    LaunchedEffect(transactionId) {
+        if (transactionId > 0) {
+            viewModel.loadForEdit(transactionId)
+        } else {
+            viewModel.initialize(defaultFlowType, defaultDate)
+        }
     }
 
-    // 保存并关闭 → 返回首页
+    // 保存并关闭 → 返回上一页
     LaunchedEffect(uiState.shouldClose) {
         if (uiState.shouldClose) {
             viewModel.clearShouldClose()
@@ -102,7 +111,7 @@ fun AddTransactionScreen(
         }
     }
 
-    // 连续记账保存成功 → 轻提示
+    // 连续记账保存成功 → 轻提示（仅新建模式）
     LaunchedEffect(uiState.saveSuccess) {
         if (uiState.saveSuccess) {
             viewModel.clearSaveSuccess()
@@ -114,18 +123,21 @@ fun AddTransactionScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { },
+                title = { Text(if (isEditMode) "编辑" else "") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "返回")
                     }
                 },
                 actions = {
-                    TextButton(
-                        onClick = { viewModel.saveAndClose() },
-                        enabled = uiState.isFormValid && !uiState.isSaving
-                    ) {
-                        Text("保存并关闭", color = MaterialTheme.colorScheme.primary)
+                    if (!isEditMode) {
+                        // 新建模式：顶部"保存并关闭"
+                        TextButton(
+                            onClick = { debounce { viewModel.saveAndClose() } },
+                            enabled = uiState.isFormValid && !uiState.isSaving
+                        ) {
+                            Text("保存并关闭", color = MaterialTheme.colorScheme.primary)
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -134,73 +146,102 @@ fun AddTransactionScreen(
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // 1. 金额输入区
-            AmountInputSection(
-                amount = uiState.amount,
-                onDigitClick = { viewModel.appendDigit(it) },
-                onDelete = { viewModel.deleteDigit() },
-                onDecimalPoint = { viewModel.addDecimalPoint() }
-            )
-
-            // 2. 流水类型选择（支出 / 收入）
-            FlowTypeSelector(
-                selectedType = uiState.selectedFlowType,
-                onTypeSelected = { viewModel.onFlowTypeSelected(it) }
-            )
-
-            // 3. 分类选择
-            CategorySelector(
-                categoryL1 = uiState.categoryL1,
-                categoryL2 = uiState.categoryL2,
-                onClick = { viewModel.showCategoryPicker() }
-            )
-
-            // 4. 日期选择
-            DateSelector(
-                date = uiState.date,
-                onClick = { showDatePicker = true }
-            )
-
-            // 5. 备注
-            NoteInput(
-                note = uiState.note,
-                onNoteChange = { viewModel.onNoteChange(it) }
-            )
-
-            // 6. 保存按钮
-            Button(
-                onClick = { viewModel.saveAndContinue() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                enabled = uiState.isFormValid && !uiState.isSaving,
-                shape = RoundedCornerShape(12.dp)
+        if (uiState.isLoadingEditData) {
+            // 编辑模式加载中
+            Box(
+                modifier = Modifier.fillMaxSize().padding(innerPadding),
+                contentAlignment = Alignment.Center
             ) {
-                Text("保存", fontSize = 18.sp)
+                androidx.compose.material3.CircularProgressIndicator()
             }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
 
-            // 错误提示
-            uiState.errorMessage?.let { error ->
-                Text(
-                    text = error,
-                    color = MaterialTheme.colorScheme.error,
-                    style = MaterialTheme.typography.bodySmall,
-                    modifier = Modifier.fillMaxWidth(),
-                    textAlign = TextAlign.Center
+                // 1. 金额输入区
+                AmountInputSection(
+                    amount = uiState.amount,
+                    onDigitClick = { viewModel.appendDigit(it) },
+                    onDelete = { viewModel.deleteDigit() },
+                    onDecimalPoint = { viewModel.addDecimalPoint() }
                 )
-            }
 
-            Spacer(modifier = Modifier.height(32.dp))
+                // 2. 流水类型选择（支出 / 收入）
+                FlowTypeSelector(
+                    selectedType = uiState.selectedFlowType,
+                    onTypeSelected = { viewModel.onFlowTypeSelected(it) }
+                )
+
+                // 3. 分类选择
+                CategorySelector(
+                    categoryL1 = uiState.categoryL1,
+                    categoryL2 = uiState.categoryL2,
+                    onClick = { viewModel.showCategoryPicker() }
+                )
+
+                // 4. 日期选择
+                DateSelector(
+                    date = uiState.date,
+                    onClick = { showDatePicker = true }
+                )
+
+                // 5. 备注
+                NoteInput(
+                    note = uiState.note,
+                    onNoteChange = { viewModel.onNoteChange(it) }
+                )
+
+                // 6. 固定模板提示（编辑模式）
+                if (isEditMode && uiState.isRecurring) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = com.wyd.mypurse.ui.theme.AppEditWarningBg)
+                    ) {
+                        Text(
+                            text = "⚠ 编辑后该记录将与固定模板解除关联",
+                            modifier = Modifier.padding(12.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = com.wyd.mypurse.ui.theme.AppEditWarningText
+                        )
+                    }
+                }
+
+                // 7. 保存按钮
+                Button(
+                    onClick = {
+                        debounce {
+                            if (isEditMode) viewModel.updateExisting()
+                            else viewModel.saveAndContinue()
+                        }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    enabled = uiState.isFormValid && !uiState.isSaving,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text("保存", fontSize = 18.sp)
+                }
+
+                // 错误提示
+                uiState.errorMessage?.let { error ->
+                    Text(
+                        text = error,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         }
     }
 
@@ -540,11 +581,9 @@ private fun CategoryPickerDialog(
                         }
                     }
                     if (topLevelCategories.isEmpty()) {
-                        Text(
-                            text = "暂无分类，请先添加",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f),
-                            modifier = Modifier.padding(vertical = 24.dp)
+                        EmptyStateText(
+                            message = "暂无分类，请先添加",
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 } else {
