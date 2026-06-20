@@ -2,10 +2,8 @@ package com.wyd.mypurse.ui.navigation
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
@@ -46,7 +44,6 @@ data class BottomNavItem(
 
 val bottomNavItems = listOf(
     BottomNavItem(Route.Home, "首页", Icons.Filled.Home, Icons.Outlined.Home),
-    BottomNavItem(Route.Statistics, "统计", Icons.Filled.DateRange, Icons.Outlined.DateRange),
     BottomNavItem(Route.Settings, "设置", Icons.Filled.Settings, Icons.Outlined.Settings),
 )
 

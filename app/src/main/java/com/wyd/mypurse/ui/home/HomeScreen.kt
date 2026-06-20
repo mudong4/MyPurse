@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -84,6 +85,9 @@ fun HomeScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 ),
                 actions = {
+                    IconButton(onClick = { debounce { onNavigateToStatistics("composition") } }) {
+                        Icon(Icons.Default.BarChart, contentDescription = "统计")
+                    }
                     IconButton(onClick = { debounce { onNavigateToBudget() } }) {
                         Icon(Icons.Default.DateRange, contentDescription = "预算设置")
                     }
