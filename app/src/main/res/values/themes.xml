@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- 浅色主题：冷启动背景色与 Compose LightColorScheme.background 一致 -->
+    <!--
+        冷启动过渡主题：
+        windowBackground 使用与加载界面图顶部一致的纯色 #E3F4EB，
+        系统冷启动 preview window 在此背景上可能短暂显示应用图标（系统行为，无法完全消除）。
+        图标闪现后 Compose 层渲染全屏加载界面图，实现视觉上的平稳过渡。
+    -->
+    <style name="Theme.MyPurse.Splash" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">#E3F4EB</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <!-- 主主题：Compose 内容渲染后使用 -->
     <style name="Theme.MyPurse" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">#FFF8F9FA</item>
         <item name="android:statusBarColor">#FFF8F9FA</item>

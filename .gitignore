@@ -21,6 +21,10 @@ local.properties
 *.class
 app/release/
 
+# --- Signing keys (DO NOT commit) ---
+*.jks
+*.keystore
+
 # --- OS ---
 .DS_Store
 Thumbs.db

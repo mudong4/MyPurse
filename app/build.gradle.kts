@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -5,6 +7,13 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
+}
+
+// 从 local.properties 读取签名密码（不提交到 Git）
+val localProps = Properties()
+val localFile = rootProject.file("local.properties")
+if (localFile.exists()) {
+    localFile.inputStream().use { localProps.load(it) }
 }
 
 android {
@@ -21,9 +30,20 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../mypurse-release.jks")
+            storePassword = localProps.getProperty("KEYSTORE_PASSWORD", "mypurse2026")
+            keyAlias = "mypurse-release"
+            keyPassword = localProps.getProperty("KEY_PASSWORD", "mypurse2026")
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -63,6 +83,8 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
     implementation(libs.kotlinx.serialization.json)
+    // SplashScreen 库已移除：其 windowSplashScreenBackground 不支持 bitmap，
+    // 改用传统 windowBackground 方式显示全屏启动图
 
     testImplementation(libs.junit)
     testImplementation(libs.room.testing)

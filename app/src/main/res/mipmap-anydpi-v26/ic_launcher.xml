@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
-    <monochrome android:drawable="@drawable/ic_launcher_foreground" />
+    <!-- 背景层：与 logo 四角的米黄色一致 -->
+    <background android:drawable="@color/ic_launcher_background"/>
+    <!-- 前景层：去除米黄背景后的完整图标 -->
+    <foreground android:drawable="@mipmap/ic_launcher_foreground"/>
 </adaptive-icon>
