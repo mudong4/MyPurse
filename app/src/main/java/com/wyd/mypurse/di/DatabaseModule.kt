@@ -40,6 +40,7 @@ object DatabaseModule {
         return try {
             Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
                 .addMigrations(*AppDatabase.ALL_MIGRATIONS)
+                .fallbackToDestructiveMigration()
                 .build()
         } catch (e: SQLiteDatabaseCorruptException) {
             Log.e(TAG, "数据库文件已损坏，尝试删除并重建: ${e.message}")
@@ -47,12 +48,14 @@ object DatabaseModule {
             // 重建数据库，种子数据由 DatabaseInitializer 在首次查询时自动填充
             Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
                 .addMigrations(*AppDatabase.ALL_MIGRATIONS)
+                .fallbackToDestructiveMigration()
                 .build()
         } catch (e: SQLiteCantOpenDatabaseException) {
             Log.e(TAG, "无法打开数据库文件，尝试删除并重建: ${e.message}")
             context.deleteDatabase(DB_NAME)
             Room.databaseBuilder(context, AppDatabase::class.java, DB_NAME)
                 .addMigrations(*AppDatabase.ALL_MIGRATIONS)
+                .fallbackToDestructiveMigration()
                 .build()
         }
     }
