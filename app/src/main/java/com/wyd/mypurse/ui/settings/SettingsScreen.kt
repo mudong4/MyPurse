@@ -20,7 +20,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.FileOpen
@@ -142,6 +141,15 @@ fun SettingsScreen(
         )
     }
 
+    // V1.1 预设选择器 BottomSheet
+    if (uiState.showPresetSelector) {
+        PresetSelectorSheet(
+            currentPresetName = uiState.currentThemePresetName,
+            onSelect = { viewModel.selectPreset(it) },
+            onDismiss = { viewModel.dismissPresetSelector() }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -228,19 +236,11 @@ fun SettingsScreen(
         SectionHeader("显示设置")
         SettingsCard {
             SettingsItem(
-                icon = Icons.Filled.DarkMode,
-                title = "暗黑模式",
-                subtitle = "即将推出",
-                enabled = false,
-                onClick = {}
-            )
-            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-            SettingsItem(
                 icon = Icons.Filled.Palette,
                 title = "主题风格",
-                subtitle = "即将推出",
-                enabled = false,
-                onClick = {}
+                subtitle = uiState.currentThemePresetName,
+                enabled = true,
+                onClick = { viewModel.showPresetSelector() }
             )
         }
 

@@ -8,6 +8,7 @@ import com.wyd.mypurse.data.export.CsvExporter
 import com.wyd.mypurse.data.export.CsvImporter
 import com.wyd.mypurse.data.export.ImportResult
 import com.wyd.mypurse.data.export.ParsedTransaction
+import com.wyd.mypurse.data.local.UserPreferencesRepository
 import com.wyd.mypurse.domain.model.Transaction
 import com.wyd.mypurse.domain.repository.CategoryRepository
 import com.wyd.mypurse.domain.repository.TransactionRepository
@@ -28,13 +29,23 @@ import javax.inject.Inject
 class SettingsViewModel @Inject constructor(
     private val application: Application,
     private val transactionRepository: TransactionRepository,
-    private val categoryRepository: CategoryRepository
+    private val categoryRepository: CategoryRepository,
+    private val userPreferencesRepository: UserPreferencesRepository
 ) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+
+    init {
+        // 收集 DataStore 中当前预设名，同步到 UiState
+        viewModelScope.launch {
+            userPreferencesRepository.themePresetName.collect { name ->
+                _uiState.update { it.copy(currentThemePresetName = name) }
+            }
+        }
+    }
 
     // ========== 导出 CSV ==========
 
@@ -227,6 +238,23 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
+    }
+
+    // ========== V1.1 主题切换 ==========
+
+    fun showPresetSelector() {
+        _uiState.update { it.copy(showPresetSelector = true) }
+    }
+
+    fun dismissPresetSelector() {
+        _uiState.update { it.copy(showPresetSelector = false) }
+    }
+
+    fun selectPreset(name: String) {
+        viewModelScope.launch {
+            userPreferencesRepository.setThemePresetName(name)
+            _uiState.update { it.copy(showPresetSelector = false) }
+        }
     }
 
 }

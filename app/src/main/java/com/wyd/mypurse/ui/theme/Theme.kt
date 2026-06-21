@@ -143,12 +143,6 @@ fun MyPurseTheme(
 }
 
 /**
- * 应用级暗黑模式偏好，可由设置页改写。
- * 默认值为 null，表示跟随系统设置。
- */
-val LocalDarkThemeOverride = staticCompositionLocalOf<Boolean?> { null }
-
-/**
  * 图表配色方案偏好，可由设置页改写。
  * 默认使用 DefaultChartColors。
  */

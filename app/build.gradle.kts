@@ -99,6 +99,7 @@ dependencies {
     implementation(libs.room.ktx)
     ksp(libs.room.compiler)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.androidx.datastore.preferences)
     // SplashScreen 库已移除：其 windowSplashScreenBackground 不支持 bitmap，
     // 改用传统 windowBackground 方式显示全屏启动图
 

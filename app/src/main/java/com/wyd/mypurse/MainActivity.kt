@@ -8,6 +8,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,10 +16,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import com.wyd.mypurse.data.local.UserPreferencesRepository
 import com.wyd.mypurse.ui.navigation.MyPurseNavHost
 import com.wyd.mypurse.ui.theme.MyPurseTheme
+import com.wyd.mypurse.ui.theme.findPresetByName
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
+import javax.inject.Inject
 
 /**
  * 应用唯一 Activity。
@@ -28,6 +32,10 @@ import kotlinx.coroutines.delay
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var userPreferencesRepository: UserPreferencesRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // 冷启动 starting window 使用 Splash 主题（浅绿色背景，无图标闪现），
         // Activity 创建后立即切回主主题，由 Compose 层接管渲染。
@@ -35,7 +43,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MyPurseTheme {
+            val presetName by userPreferencesRepository.themePresetName
+                .collectAsState(initial = "默认紫")
+            val preset = findPresetByName(presetName)
+
+            MyPurseTheme(preset = preset) {
                 AppEntry()
             }
         }

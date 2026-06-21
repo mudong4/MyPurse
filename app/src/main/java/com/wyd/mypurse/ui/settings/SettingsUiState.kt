@@ -22,5 +22,10 @@ data class SettingsUiState(
     val clearDataComplete: Boolean = false,
 
     /** 错误提示 */
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+
+    /** 当前主题预设名（V1.1 主题切换） */
+    val currentThemePresetName: String = "默认紫",
+    /** 是否显示预设选择器 BottomSheet（V1.1） */
+    val showPresetSelector: Boolean = false
 )
