@@ -44,7 +44,7 @@ class GetStatisticsUseCase @Inject constructor(
         val cal = Calendar.getInstance().apply { timeInMillis = timestamp }
         return when (granularity) {
             Granularity.DAY -> {
-                cal.add(Calendar.DAY_OF_MONTH, -6) // 最多7天
+                cal.add(Calendar.DAY_OF_MONTH, -29) // 最多30天
                 cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0)
                 cal.set(Calendar.SECOND, 0); cal.set(Calendar.MILLISECOND, 0)
                 cal.timeInMillis

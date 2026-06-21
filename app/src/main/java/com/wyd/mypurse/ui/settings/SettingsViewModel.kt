@@ -228,4 +228,5 @@ class SettingsViewModel @Inject constructor(
     fun dismissError() {
         _uiState.update { it.copy(errorMessage = null) }
     }
+
 }

@@ -45,19 +45,18 @@ class TransactionListViewModel @Inject constructor(
         val year = now.get(Calendar.YEAR)
         val month = now.get(Calendar.MONTH) + 1
         val day = now.get(Calendar.DAY_OF_MONTH)
-        val weekOfYear = now.get(Calendar.WEEK_OF_YEAR)
 
         var targetYear = year
         var targetMonth = month
         var targetDay = day
-        var targetWeekOfYear = weekOfYear
+        var targetWeekOfYear: Int = getMondayBasedWeekOfYear(now)
 
         if (timeRangeStart != null) {
             val cal = Calendar.getInstance().apply { timeInMillis = timeRangeStart }
             targetYear = cal.get(Calendar.YEAR)
             targetMonth = cal.get(Calendar.MONTH) + 1
             targetDay = cal.get(Calendar.DAY_OF_MONTH)
-            targetWeekOfYear = cal.get(Calendar.WEEK_OF_YEAR)
+            targetWeekOfYear = getMondayBasedWeekOfYear(cal)
         }
 
         _uiState.update {
@@ -80,7 +79,6 @@ class TransactionListViewModel @Inject constructor(
         val year = now.get(Calendar.YEAR)
         val month = now.get(Calendar.MONTH) + 1
         val day = now.get(Calendar.DAY_OF_MONTH)
-        val weekOfYear = now.get(Calendar.WEEK_OF_YEAR)
 
         _uiState.update {
             it.copy(
@@ -88,8 +86,8 @@ class TransactionListViewModel @Inject constructor(
                 currentYear = year,
                 currentMonth = month,
                 currentDay = day,
-                currentWeekOfYear = weekOfYear,
-                weekDateRange = computeWeekDateRange(year, weekOfYear),
+                currentWeekOfYear = getMondayBasedWeekOfYear(now),
+                weekDateRange = computeWeekDateRange(year, getMondayBasedWeekOfYear(now)),
                 expandedGroups = emptySet()
             )
         }
@@ -168,8 +166,8 @@ class TransactionListViewModel @Inject constructor(
                 currentYear = cal.get(Calendar.YEAR),
                 currentMonth = cal.get(Calendar.MONTH) + 1,
                 currentDay = cal.get(Calendar.DAY_OF_MONTH),
-                currentWeekOfYear = cal.get(Calendar.WEEK_OF_YEAR),
-                weekDateRange = computeWeekDateRange(cal.get(Calendar.YEAR), cal.get(Calendar.WEEK_OF_YEAR)),
+                currentWeekOfYear = getMondayBasedWeekOfYear(cal),
+                weekDateRange = computeWeekDateRange(cal.get(Calendar.YEAR), getMondayBasedWeekOfYear(cal)),
                 expandedGroups = emptySet()
             )
         }
@@ -179,13 +177,14 @@ class TransactionListViewModel @Inject constructor(
 
     fun onDateSelected(year: Int, month: Int, dayOfMonth: Int) {
         val cal = Calendar.getInstance().apply { set(year, month - 1, dayOfMonth) }
+        val woy = getMondayBasedWeekOfYear(cal)
         _uiState.update {
             it.copy(
                 currentYear = year,
                 currentMonth = month,
                 currentDay = dayOfMonth,
-                currentWeekOfYear = cal.get(Calendar.WEEK_OF_YEAR),
-                weekDateRange = computeWeekDateRange(year, cal.get(Calendar.WEEK_OF_YEAR)),
+                currentWeekOfYear = woy,
+                weekDateRange = computeWeekDateRange(year, woy),
                 showDatePicker = false
             )
         }
@@ -657,8 +656,23 @@ class TransactionListViewModel @Inject constructor(
         }
     }
 
+    /**
+     * 以周一为起始日计算给定日期的所属周序号，保持与 [getWeeklySummary] 一致。
+     * Calendar.WEEK_OF_YEAR 默认以周日为起始，直接使用会导致与首页"本周"错位。
+     */
+    private fun getMondayBasedWeekOfYear(cal: Calendar): Int {
+        // 先找到该日所属的周一
+        val clone = cal.clone() as Calendar
+        val dow = clone.get(Calendar.DAY_OF_WEEK)
+        val daysFromMonday = if (dow == Calendar.SUNDAY) 6 else dow - Calendar.MONDAY
+        clone.add(Calendar.DAY_OF_MONTH, -daysFromMonday)
+        clone.firstDayOfWeek = Calendar.MONDAY
+        return clone.get(Calendar.WEEK_OF_YEAR)
+    }
+
     private fun getWeekStartCalendar(year: Int, weekOfYear: Int): Calendar {
         return Calendar.getInstance().apply {
+            firstDayOfWeek = Calendar.MONDAY
             clear()
             set(Calendar.YEAR, year)
             set(Calendar.WEEK_OF_YEAR, weekOfYear)

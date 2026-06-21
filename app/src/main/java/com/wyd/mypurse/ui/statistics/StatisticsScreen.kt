@@ -87,7 +87,6 @@ import com.wyd.mypurse.ui.components.YearWheelSheet
 import com.wyd.mypurse.ui.components.rememberDebounce
 import com.wyd.mypurse.ui.theme.AppBarChartBg
 import com.wyd.mypurse.ui.theme.AppBudgetBlue
-import com.wyd.mypurse.ui.theme.AppBudgetOrange
 import com.wyd.mypurse.ui.theme.AppCornerMedium
 import com.wyd.mypurse.ui.theme.AppCornerSmall
 import com.wyd.mypurse.ui.theme.AppDivider
@@ -126,9 +125,11 @@ fun StatisticsScreen(
         when {
             uiState.trend.size <= 4 -> 1
             uiState.trend.size <= 8 -> 1
-            uiState.trend.size <= 15 -> 2
-            uiState.trend.size <= 20 -> 3
-            else -> 5
+            uiState.trend.size <= 10 -> 2
+            uiState.trend.size <= 15 -> 3
+            uiState.trend.size <= 20 -> 4
+            uiState.trend.size <= 31 -> 5
+            else -> 8
         }
     } else 1
 
@@ -198,7 +199,7 @@ fun StatisticsScreen(
                             granularity = uiState.granularity,
                             chartMode = uiState.trendChartMode,
                             labelStep = labelStep,
-                            budget = uiState.budget,
+
                             onToggleChartMode = { viewModel.toggleTrendChartMode() }
                         )
                 }
@@ -421,7 +422,7 @@ private fun DonutChart(
 
     // 图例
     Spacer(modifier = Modifier.height(8.dp))
-    Column(modifier = Modifier.padding(horizontal = 8.dp)) {
+    Column(modifier = Modifier.padding(horizontal = 4.dp)) {
         items.forEachIndexed { index, item ->
             val pct = if (total > BigDecimal.ZERO) {
                 item.total.multiply(BigDecimal("100")).divide(total, 1, RoundingMode.HALF_UP)
@@ -429,7 +430,7 @@ private fun DonutChart(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 2.dp),
+                    .padding(vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Box(
@@ -446,12 +447,24 @@ private fun DonutChart(
                 Text(
                     text = item.categoryL1,
                     fontSize = 12.sp,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f).padding(end = 4.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "¥${df.format(item.total)}  ${dfPct.format(pct)}%",
+                    text = "¥${df.format(item.total)}",
                     fontSize = 11.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "${dfPct.format(pct)}%",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.width(36.dp),
+                    textAlign = TextAlign.End
                 )
             }
         }
@@ -513,12 +526,16 @@ private fun CompositionBarList(
                 )
             } else {
                 val subTotal = subComposition.sumOf { it.total }
+                val parentTotal = items.find { it.categoryL1Id == expandedCategoryId }?.total ?: subTotal
                 Column(modifier = Modifier.padding(start = 24.dp)) {
                     subComposition.forEach { sub ->
-                        val subPct = if (subTotal > BigDecimal.ZERO) {
-                            sub.total.divide(subTotal, 4, RoundingMode.HALF_UP)
-                                .toFloat().coerceAtLeast(0.03f)
+                        val subPct = if (parentTotal > BigDecimal.ZERO) {
+                            sub.total.divide(parentTotal, 4, RoundingMode.HALF_UP)
+                                .toFloat().coerceAtLeast(0.02f)
                         } else 0f
+                        val subPctText = if (parentTotal > BigDecimal.ZERO) {
+                            sub.total.multiply(BigDecimal("100")).divide(parentTotal, 1, RoundingMode.HALF_UP)
+                        } else BigDecimal.ZERO
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -526,8 +543,10 @@ private fun CompositionBarList(
                             Text(
                                 text = sub.categoryL1,
                                 fontSize = 11.sp,
-                                modifier = Modifier.width(56.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                modifier = Modifier.width(52.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Box(
                                 modifier = Modifier
@@ -549,6 +568,11 @@ private fun CompositionBarList(
                             Text(
                                 text = "¥${df.format(sub.total)}",
                                 fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${dfPct.format(subPctText)}%",
+                                fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
                             )
                         }
                     }
@@ -583,12 +607,15 @@ private fun CompositionBar(
                 text = name,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                modifier = Modifier.width(56.dp)
+                modifier = Modifier.width(60.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                color = MaterialTheme.colorScheme.onSurface
             )
 
             Spacer(modifier = Modifier.width(10.dp))
 
-            // 带背景的条形图（灰色底 + 彩色填充 + 金额在上、百分比在下）
+            // 彩色条形（纯色，无文字覆盖，参考首页排行榜样式）
             val barFraction = pct.coerceIn(0.02f, 1f)
             Box(
                 modifier = Modifier
@@ -597,7 +624,6 @@ private fun CompositionBar(
                     .clip(RoundedCornerShape(6.dp))
                     .background(AppBarChartBg)
             ) {
-                // 彩色填充条
                 Box(
                     modifier = Modifier
                         .fillMaxHeight()
@@ -605,28 +631,23 @@ private fun CompositionBar(
                         .clip(RoundedCornerShape(6.dp))
                         .background(color)
                 )
+            }
 
-                // 金额显示在条上
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "¥${df.format(amount)}",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (pct > 0.4f) Color.White else MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = "${dfPct.format(pctText)}%",
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (pct > 0.4f) Color.White.copy(alpha = 0.8f) else MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // 金额 + 百分比（在 bar 右侧，用主题文字色，浅色/深色模式自适应）
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = "¥${df.format(amount)}",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${dfPct.format(pctText)}%",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
@@ -640,7 +661,6 @@ private fun TrendPage(
     granularity: Granularity,
     chartMode: ChartMode,
     labelStep: Int,
-    budget: BigDecimal? = null,
     onToggleChartMode: () -> Unit
 ) {
     // 选中数据点状态
@@ -709,7 +729,6 @@ private fun TrendPage(
                         selectedIndex = selectedIndex,
                         labelStep = labelStep,
                         granularity = granularity,
-                        budget = budget,
                         onSelectIndex = { selectedIndex = it },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -721,7 +740,6 @@ private fun TrendPage(
                         selectedIndex = selectedIndex,
                         labelStep = labelStep,
                         granularity = granularity,
-                        budget = budget,
                         onSelectIndex = { selectedIndex = it },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -755,7 +773,6 @@ private fun BarChart(
     selectedIndex: Int?,
     labelStep: Int,
     granularity: Granularity,
-    budget: BigDecimal? = null,
     onSelectIndex: (Int?) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -777,8 +794,10 @@ private fun BarChart(
             .pointerInput(trend) {
                 detectTapGestures { offset ->
                     if (trend.isEmpty()) return@detectTapGestures
-                    val barSpacing = size.width / (trend.size + 1)
-                    val index = ((offset.x / barSpacing).toInt()).coerceIn(0, trend.size - 1)
+                    val leftPad = 48.dp.toPx()
+                    val drawW = size.width - leftPad
+                    val barSpacing = drawW / (trend.size + 1)
+                    val index = (((offset.x - leftPad) / barSpacing).toInt()).coerceIn(0, trend.size - 1)
                     onSelectIndex(if (index == selectedIndex) null else index)
                 }
             }
@@ -786,34 +805,38 @@ private fun BarChart(
         if (trend.isEmpty() || maxAmount <= BigDecimal.ZERO) return@Canvas
         val chartW = size.width
         val chartH = size.height
+        val leftPad = 48.dp.toPx()
         val bottomPad = 28.dp.toPx()
-        val topPad = 8.dp.toPx()
+        val topPad = 12.dp.toPx()
+        val drawW = chartW - leftPad - 4.dp.toPx() // 右侧留少许间距
         val drawH = chartH - bottomPad - topPad
 
         val barCount = trend.size
-        val barSpacing = chartW / (barCount + 1)
-        val barW = (barSpacing * 0.6f).coerceAtMost(28.dp.toPx())
+        val barSpacing = drawW / (barCount + 1)
+        val barW = (barSpacing * 0.6f).coerceAtMost(24.dp.toPx())
 
-        // 预算参考线（仅月度粒度 + 有预算时显示）
-        if (granularity == Granularity.MONTH && budget != null && budget > BigDecimal.ZERO) {
-            val budgetFrac = if (maxAmount > BigDecimal.ZERO) {
-                budget.divide(maxAmount, 4, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
-            } else 0f
-            val budgetY = topPad + drawH * (1 - budgetFrac)
+        // === Y 轴：3 条参考线 (0%, 50%, 100%) ===
+        val yTickCount = 3
+        val gridLineColor = Color(0x22000000)
+        for (i in 0..yTickCount) {
+            val frac = i.toFloat() / yTickCount
+            val y = topPad + drawH * (1 - frac)
+            // 虚线参考线
             drawLine(
-                color = AppBudgetOrange.copy(alpha = 0.7f),
-                start = Offset(0f, budgetY),
-                end = Offset(chartW, budgetY),
-                strokeWidth = 1.5.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 4f), 0f)
+                color = gridLineColor,
+                start = Offset(leftPad, y),
+                end = Offset(leftPad + drawW, y),
+                strokeWidth = 0.5.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 4f), 0f)
             )
-            // 预算标签
+            // Y 轴刻度标签（用整数运算避免浮点精度问题）
+            val amount = maxAmount.multiply(BigDecimal(i)).divide(BigDecimal(yTickCount), 0, RoundingMode.HALF_UP)
             drawContext.canvas.nativeCanvas.drawText(
-                "预算 ¥${df.format(budget)}",
-                chartW - 4.dp.toPx(),
-                budgetY - 4.dp.toPx(),
+                if (amount <= BigDecimal.ZERO) "0" else "¥${df.format(amount)}",
+                leftPad - 4.dp.toPx(),
+                y + 3.dp.toPx(),
                 android.graphics.Paint().apply {
-                    color = 0xFFFB8C00.toInt()
+                    color = 0xFF888888.toInt()
                     textSize = 9.sp.toPx()
                     textAlign = android.graphics.Paint.Align.RIGHT
                     isAntiAlias = true
@@ -823,7 +846,7 @@ private fun BarChart(
 
         // 画柱子
         trend.forEachIndexed { index, point ->
-            val x = barSpacing * (index + 1) - barW / 2
+            val x = leftPad + barSpacing * (index + 1) - barW / 2
             val hFrac = animatedFractions[index]
             val barH = drawH * hFrac
             val y = topPad + drawH - barH
@@ -834,7 +857,7 @@ private fun BarChart(
 
         // 选中竖线
         if (selectedIndex != null && selectedIndex < trend.size) {
-            val lineX = barSpacing * (selectedIndex + 1)
+            val lineX = leftPad + barSpacing * (selectedIndex + 1)
             drawLine(
                 color = DefaultChartColors.chartAccent.copy(alpha = 0.5f),
                 start = Offset(lineX, topPad),
@@ -846,7 +869,7 @@ private fun BarChart(
         // X 轴标签
         trend.forEachIndexed { index, point ->
             if (index % labelStep == 0) {
-                val x = barSpacing * (index + 1)
+                val x = leftPad + barSpacing * (index + 1)
                 val label = shortLabel(point, granularity)
                 drawContext.canvas.nativeCanvas.drawText(
                     label,
@@ -873,7 +896,6 @@ private fun LineChart(
     selectedIndex: Int?,
     labelStep: Int,
     granularity: Granularity,
-    budget: BigDecimal? = null,
     onSelectIndex: (Int?) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -895,8 +917,10 @@ private fun LineChart(
             .pointerInput(trend) {
                 detectTapGestures { offset ->
                     if (trend.isEmpty()) return@detectTapGestures
-                    val barSpacing = size.width / (trend.size + 1)
-                    val index = ((offset.x / barSpacing).toInt()).coerceIn(0, trend.size - 1)
+                    val leftPad = 48.dp.toPx()
+                    val drawW = size.width - leftPad
+                    val barSpacing = drawW / (trend.size + 1)
+                    val index = (((offset.x - leftPad) / barSpacing).toInt()).coerceIn(0, trend.size - 1)
                     onSelectIndex(if (index == selectedIndex) null else index)
                 }
             }
@@ -904,31 +928,34 @@ private fun LineChart(
         if (trend.size < 2 || maxAmount <= BigDecimal.ZERO) return@Canvas
         val chartW = size.width
         val chartH = size.height
+        val leftPad = 48.dp.toPx()
         val bottomPad = 28.dp.toPx()
-        val topPad = 8.dp.toPx()
+        val topPad = 12.dp.toPx()
+        val drawW = chartW - leftPad - 4.dp.toPx()
         val drawH = chartH - bottomPad - topPad
 
-        val barSpacing = chartW / (trend.size + 1)
+        val barSpacing = drawW / (trend.size + 1)
 
-        // 预算参考线（仅月度粒度 + 有预算时显示）
-        if (granularity == Granularity.MONTH && budget != null && budget > BigDecimal.ZERO) {
-            val budgetFrac = if (maxAmount > BigDecimal.ZERO) {
-                budget.divide(maxAmount, 4, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
-            } else 0f
-            val budgetY = topPad + drawH * (1 - budgetFrac)
+        // === Y 轴：3 条参考线 ===
+        val yTickCount = 3
+        val gridLineColor = Color(0x22000000)
+        for (i in 0..yTickCount) {
+            val frac = i.toFloat() / yTickCount
+            val y = topPad + drawH * (1 - frac)
             drawLine(
-                color = AppBudgetOrange.copy(alpha = 0.7f),
-                start = Offset(0f, budgetY),
-                end = Offset(chartW, budgetY),
-                strokeWidth = 1.5.dp.toPx(),
-                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 4f), 0f)
+                color = gridLineColor,
+                start = Offset(leftPad, y),
+                end = Offset(leftPad + drawW, y),
+                strokeWidth = 0.5.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 4f), 0f)
             )
+            val amount = maxAmount.multiply(BigDecimal(i)).divide(BigDecimal(yTickCount), 0, RoundingMode.HALF_UP)
             drawContext.canvas.nativeCanvas.drawText(
-                "预算 ¥${df.format(budget)}",
-                chartW - 4.dp.toPx(),
-                budgetY - 4.dp.toPx(),
+                if (amount <= BigDecimal.ZERO) "0" else "¥${df.format(amount)}",
+                leftPad - 4.dp.toPx(),
+                y + 3.dp.toPx(),
                 android.graphics.Paint().apply {
-                    color = 0xFFFB8C00.toInt()
+                    color = 0xFF888888.toInt()
                     textSize = 9.sp.toPx()
                     textAlign = android.graphics.Paint.Align.RIGHT
                     isAntiAlias = true
@@ -938,8 +965,8 @@ private fun LineChart(
 
         // 填充区域
         val fillPath = Path()
-        trend.forEachIndexed { index, point ->
-            val x = barSpacing * (index + 1)
+        trend.forEachIndexed { index, _ ->
+            val x = leftPad + barSpacing * (index + 1)
             val hFrac = animatedFractions[index]
             val y = topPad + drawH * (1 - hFrac)
             if (index == 0) {
@@ -949,14 +976,14 @@ private fun LineChart(
                 fillPath.lineTo(x, y)
             }
         }
-        fillPath.lineTo(barSpacing * trend.size, topPad + drawH)
+        fillPath.lineTo(leftPad + barSpacing * trend.size, topPad + drawH)
         fillPath.close()
         drawPath(path = fillPath, color = DefaultChartColors.chartPrimary.copy(alpha = 0.1f))
 
         // 折线
         val linePath = Path()
-        trend.forEachIndexed { index, point ->
-            val x = barSpacing * (index + 1)
+        trend.forEachIndexed { index, _ ->
+            val x = leftPad + barSpacing * (index + 1)
             val hFrac = animatedFractions[index]
             val y = topPad + drawH * (1 - hFrac)
             if (index == 0) linePath.moveTo(x, y) else linePath.lineTo(x, y)
@@ -965,7 +992,7 @@ private fun LineChart(
 
         // 数据点
         trend.forEachIndexed { index, _ ->
-            val x = barSpacing * (index + 1)
+            val x = leftPad + barSpacing * (index + 1)
             val hFrac = animatedFractions[index]
             val y = topPad + drawH * (1 - hFrac)
             val isSelected = index == selectedIndex
@@ -983,7 +1010,7 @@ private fun LineChart(
 
         // 选中竖线
         if (selectedIndex != null && selectedIndex < trend.size) {
-            val lineX = barSpacing * (selectedIndex + 1)
+            val lineX = leftPad + barSpacing * (selectedIndex + 1)
             drawLine(
                 color = DefaultChartColors.chartAccent.copy(alpha = 0.4f),
                 start = Offset(lineX, topPad),
@@ -995,7 +1022,7 @@ private fun LineChart(
         // X 轴标签
         trend.forEachIndexed { index, point ->
             if (index % labelStep == 0) {
-                val x = barSpacing * (index + 1)
+                val x = leftPad + barSpacing * (index + 1)
                 val label = shortLabel(point, granularity)
                 drawContext.canvas.nativeCanvas.drawText(
                     label,

@@ -22,6 +22,15 @@ import androidx.compose.ui.graphics.Color
  */
 fun categoryColor(argb: Long): Color? = if (argb == 0L) null else Color(argb)
 
+/**
+ * 计算颜色的相对亮度（WCAG 标准），返回 0~1，>0.5 视为亮色。
+ * 用于决定前景文字颜色（白/黑）以保证可读性。
+ */
+fun Color.luminance(): Float = 0.2126f * red + 0.7152f * green + 0.0722f * blue
+
+/** 根据背景色的亮度返回对比度足够的前景色（白或黑） */
+fun Color.contrastingForeground(): Color = if (luminance() > 0.55f) Color.Black else Color.White
+
 // ========== 功能语义色 ==========
 
 /** 支出金额专用色 */

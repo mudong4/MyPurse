@@ -35,6 +35,9 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -416,22 +419,35 @@ private fun TrendChartCard(
     trend: List<MonthlyAmount>,
     onClick: () -> Unit
 ) {
+    var selectedBarIndex by remember { mutableIntStateOf(-1) }
+
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(
-                text = "近 6 个月支出趋势",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Bold
-            )
+            // 标题行：点击"完整趋势 >"跳转统计页
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "近 6 个月支出趋势",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "完整趋势 >",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppBudgetBlue,
+                    modifier = Modifier.clickable(onClick = onClick)
+                )
+            }
+
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 简洁柱状图：用 Compose 原生绘制
             val maxAmount = trend.maxOfOrNull { it.total } ?: BigDecimal.ONE
             if (maxAmount <= BigDecimal.ZERO) {
                 EmptyStateText(
@@ -442,11 +458,12 @@ private fun TrendChartCard(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(120.dp),
+                        .height(144.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                     verticalAlignment = Alignment.Bottom
                 ) {
-                    trend.forEach { item ->
+                    trend.forEachIndexed { index, item ->
+                        val isSelected = selectedBarIndex == index
                         val heightFraction = item.total.divide(maxAmount, 4, RoundingMode.HALF_UP)
                             .toFloat()
                             .coerceAtLeast(0.02f)
@@ -454,11 +471,29 @@ private fun TrendChartCard(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier.weight(1f)
                         ) {
+                            // 金额标签：选中时显示，固定高度避免布局跳动
+                            Box(
+                                modifier = Modifier.height(24.dp),
+                                contentAlignment = Alignment.BottomCenter
+                            ) {
+                                if (isSelected) {
+                                    Text(
+                                        text = "¥${decimalFormat.format(item.total)}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = AppBudgetBlue,
+                                        fontWeight = FontWeight.Bold,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
                             Box(
                                 modifier = Modifier
                                     .width(28.dp)
                                     .fillMaxWidth()
-                                    .weight(1f),
+                                    .weight(1f)
+                                    .clickable {
+                                        selectedBarIndex = if (isSelected) -1 else index
+                                    },
                                 contentAlignment = Alignment.BottomCenter
                             ) {
                                 Box(
@@ -466,23 +501,12 @@ private fun TrendChartCard(
                                         .fillMaxWidth()
                                         .fillMaxSize(heightFraction)
                                         .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                        .then(
-                                            Modifier.fillMaxWidth()
-                                        )
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .then(
-                                                Modifier.fillMaxWidth()
-                                            )
+                                    val barAlpha = if (isSelected) 1f else 0.7f
+                                    androidx.compose.foundation.Canvas(
+                                        modifier = Modifier.fillMaxSize()
                                     ) {
-                                        // 使用 BudgetBlue 作为柱状图颜色
-                                        androidx.compose.foundation.Canvas(
-                                            modifier = Modifier.fillMaxSize()
-                                        ) {
-                                            drawRect(color = AppBudgetBlue)
-                                        }
+                                        drawRect(color = AppBudgetBlue.copy(alpha = barAlpha))
                                     }
                                 }
                             }
