@@ -61,6 +61,22 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // APK 命名：MyPurse-v1.0.1-release.apk，避免每次构建覆盖
+    tasks.matching { it.name == "assembleRelease" }.configureEach {
+        doLast {
+            val releaseDir = layout.buildDirectory.dir("outputs/apk/release").get().asFile
+            val apk = releaseDir.listFiles()?.find {
+                it.name.endsWith(".apk") && it.name.startsWith("app-")
+            }
+            if (apk != null) {
+                val newName = "MyPurse-v${defaultConfig.versionName}-release.apk"
+                val newFile = File(releaseDir, newName)
+                apk.renameTo(newFile)
+                logger.lifecycle("APK renamed to: $newName")
+            }
+        }
+    }
 }
 
 dependencies {
