@@ -30,7 +30,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -1348,8 +1347,7 @@ private fun CalendarSheet(
     var selectedYear by remember { mutableStateOf(currentYear) }
     var selectedMonth by remember { mutableStateOf(currentMonth) }
     var selectedDay by remember { mutableStateOf(currentDay) }
-    var showYearPicker by remember { mutableStateOf(false) }
-    var showMonthPicker by remember { mutableStateOf(false) }
+    var showYearMonthPicker by remember { mutableStateOf(false) }
 
     val daysInMonth = remember(selectedYear, selectedMonth) {
         val cal = Calendar.getInstance().apply {
@@ -1368,71 +1366,18 @@ private fun CalendarSheet(
         }.timeInMillis
     } else 0L
 
-    // 年份选择（内嵌弹出）
-    if (showYearPicker) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = null,
-            text = {
-                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
-                    items(years) { year ->
-                        val sel = year == selectedYear
-                        Text(
-                            text = "${year}年",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedYear = year; showYearPicker = false }
-                                .background(if (sel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                                .padding(vertical = 12.dp, horizontal = 16.dp),
-                            color = if (sel) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                            fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
+    // 年月并排双滚轮选择（覆盖在日历上方）
+    if (showYearMonthPicker) {
+        YearMonthSheet(
+            currentYear = selectedYear,
+            currentMonth = selectedMonth,
+            years = years,
+            onSelected = { y, m ->
+                selectedYear = y
+                selectedMonth = m
+                showYearMonthPicker = false
             },
-            confirmButton = {
-                Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.clickable { showYearPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
-            }
-        )
-        return
-    }
-
-    // 月份选择（内嵌弹出）
-    if (showMonthPicker) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = null,
-            text = {
-                Column {
-                    for (row in 0..2) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                            for (col in 0..3) {
-                                val m = row * 4 + col + 1
-                                val sel = selectedYear == currentYear && m == currentMonth
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f).padding(4.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (sel) DefaultChartColors.chartPrimary else MaterialTheme.colorScheme.surfaceVariant)
-                                        .clickable { selectedMonth = m; showMonthPicker = false }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text("${m}月",
-                                        color = if (sel) Color.White else MaterialTheme.colorScheme.onSurfaceVariant,
-                                        fontSize = 14.sp)
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.clickable { showMonthPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
-            }
+            onDismiss = { showYearMonthPicker = false }
         )
         return
     }
@@ -1462,14 +1407,9 @@ private fun CalendarSheet(
                     Icon(Icons.AutoMirrored.Filled.KeyboardArrowLeft, "上月")
                 }
                 Text(
-                    "${selectedYear}年",
+                    "${selectedYear}年${selectedMonth}月",
                     fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DefaultChartColors.chartPrimary,
-                    modifier = Modifier.clickable { showYearPicker = true }.padding(horizontal = 4.dp)
-                )
-                Text(
-                    "${selectedMonth}月",
-                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DefaultChartColors.chartPrimary,
-                    modifier = Modifier.clickable { showMonthPicker = true }.padding(horizontal = 4.dp)
+                    modifier = Modifier.clickable { showYearMonthPicker = true }.padding(horizontal = 4.dp)
                 )
                 IconButton(onClick = {
                     if (selectedMonth == 12) { selectedYear++; selectedMonth = 1 }
@@ -1576,31 +1516,11 @@ private fun QuarterSheet(
     val currentQuarter = (currentMonth - 1) / 3 + 1
 
     if (showYearPicker) {
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = null,
-            text = {
-                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
-                    items(years) { year ->
-                        val sel = year == selectedYear
-                        Text(
-                            text = "${year}年",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { selectedYear = year; showYearPicker = false }
-                                .background(if (sel) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
-                                .padding(vertical = 12.dp, horizontal = 16.dp),
-                            color = if (sel) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
-                            fontWeight = if (sel) FontWeight.Bold else FontWeight.Normal,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.clickable { showYearPicker = false }.padding(horizontal = 12.dp, vertical = 8.dp))
-            }
+        YearWheelSheet(
+            years = years,
+            selectedYear = selectedYear,
+            onConfirm = { selectedYear = it; showYearPicker = false },
+            onDismiss = { showYearPicker = false }
         )
         return
     }
@@ -1659,5 +1579,63 @@ private fun QuarterSheet(
         }
     }
 }
+
+// ========== 年份滚轮选择（BottomSheet，供 QuarterSheet 复用） ==========
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun YearWheelSheet(
+    years: List<Int>,
+    selectedYear: Int,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var curYear by remember { mutableIntStateOf(selectedYear) }
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = SheetBg,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding()
+        ) {
+            Text(
+                "选择年份",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                textAlign = TextAlign.Center
+            )
+            HorizontalDivider(color = AppDivider)
+            WheelPicker(
+                items = years,
+                selectedIndex = years.indexOf(curYear).coerceAtLeast(0),
+                displayText = { "${it}年" },
+                onSelected = { curYear = it },
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+                highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
+                selectedTextColor = DefaultChartColors.chartPrimary,
+                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                backgroundColor = SheetBg
+            )
+            HorizontalDivider(color = AppDivider)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                TextButton(onClick = { onConfirm(curYear) }) {
+                    Text("确定", color = DefaultChartColors.chartPrimary)
+                }
+            }
+        }
+    }
+}
+
+
+
+
 
 
