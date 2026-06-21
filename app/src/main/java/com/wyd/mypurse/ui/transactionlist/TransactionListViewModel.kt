@@ -31,6 +31,9 @@ class TransactionListViewModel @Inject constructor(
     private var currentOffset = 0
     private val pageSize = 50
 
+    /** 非分页视图的最大加载量，替代 Int.MAX_VALUE 作为 limit 参数 */
+    private val maxLoadSize = 500
+
     fun initialize(
         granularity: String,
         categoryFilter: String?,
@@ -314,7 +317,7 @@ class TransactionListViewModel @Inject constructor(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
             categoryFilter = null,
-            limit = Int.MAX_VALUE,
+            limit = maxLoadSize,
             offset = 0
         ).first()
 
@@ -383,7 +386,7 @@ class TransactionListViewModel @Inject constructor(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
             categoryFilter = null,
-            limit = Int.MAX_VALUE,
+            limit = maxLoadSize,
             offset = 0
         ).first()
 
@@ -432,7 +435,7 @@ class TransactionListViewModel @Inject constructor(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
             categoryFilter = null,
-            limit = Int.MAX_VALUE,
+            limit = maxLoadSize,
             offset = 0
         ).first()
 
@@ -487,7 +490,7 @@ class TransactionListViewModel @Inject constructor(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
             categoryFilter = null,
-            limit = Int.MAX_VALUE,
+            limit = maxLoadSize,
             offset = 0
         ).first()
 

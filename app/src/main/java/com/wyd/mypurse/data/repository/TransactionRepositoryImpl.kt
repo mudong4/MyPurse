@@ -112,6 +112,19 @@ class TransactionRepositoryImpl @Inject constructor(
         return budgetDao.observeBudget().map { it?.amount }
     }
 
+    override suspend fun updateBudget(amount: BigDecimal) {
+        budgetDao.upsertBudget(
+            BudgetEntity(amount = amount, updatedAt = System.currentTimeMillis())
+        )
+    }
+
+    override suspend fun deleteBudget() {
+        val entity = budgetDao.getBudget()
+        if (entity != null) {
+            budgetDao.deleteBudget(entity)
+        }
+    }
+
     override suspend fun insertTransaction(
         flowType: String,
         categoryL1Id: Long?,

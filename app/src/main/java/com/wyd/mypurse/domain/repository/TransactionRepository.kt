@@ -59,6 +59,16 @@ interface TransactionRepository {
     fun observeBudget(): Flow<BigDecimal?>
 
     /**
+     * 保存或更新预算金额。
+     */
+    suspend fun updateBudget(amount: BigDecimal)
+
+    /**
+     * 删除预算（取消预算设置）。
+     */
+    suspend fun deleteBudget()
+
+    /**
      * 插入一条交易记录。
      */
     suspend fun insertTransaction(

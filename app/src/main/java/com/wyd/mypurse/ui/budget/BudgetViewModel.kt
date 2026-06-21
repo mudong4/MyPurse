@@ -2,8 +2,7 @@ package com.wyd.mypurse.ui.budget
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.wyd.mypurse.data.local.dao.BudgetDao
-import com.wyd.mypurse.data.local.entity.BudgetEntity
+import com.wyd.mypurse.domain.repository.TransactionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,7 +17,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class BudgetViewModel @Inject constructor(
-    private val budgetDao: BudgetDao
+    private val transactionRepository: TransactionRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(BudgetUiState())
@@ -30,10 +29,10 @@ class BudgetViewModel @Inject constructor(
 
     private fun loadBudget() {
         viewModelScope.launch {
-            val entity = budgetDao.getBudget()
+            val amount = transactionRepository.getBudget()
             _uiState.update {
                 it.copy(
-                    amount = entity?.amount,
+                    amount = amount,
                     isLoading = false
                 )
             }
@@ -47,20 +46,15 @@ class BudgetViewModel @Inject constructor(
     fun saveBudget() {
         val amount = _uiState.value.amount ?: return
         viewModelScope.launch {
-            budgetDao.upsertBudget(
-                BudgetEntity(amount = amount, updatedAt = System.currentTimeMillis())
-            )
+            transactionRepository.updateBudget(amount)
             _uiState.update { it.copy(isSaved = true) }
         }
     }
 
     fun clearBudget() {
         viewModelScope.launch {
-            val entity = budgetDao.getBudget()
-            if (entity != null) {
-                budgetDao.deleteBudget(entity)
-                _uiState.update { it.copy(amount = null, isSaved = false) }
-            }
+            transactionRepository.deleteBudget()
+            _uiState.update { it.copy(amount = null, isSaved = false) }
         }
     }
 }

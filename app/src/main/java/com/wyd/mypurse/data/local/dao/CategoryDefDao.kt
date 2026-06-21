@@ -47,11 +47,11 @@ interface CategoryDefDao {
     suspend fun getCategoryById(id: Long): CategoryDefEntity?
 
     /** 根据名称和父级查找分类 */
-    @Query("SELECT * FROM category_def WHERE name = :name AND parent_id IS :parentId")
+    @Query("SELECT * FROM category_def WHERE name = :name AND (parent_id = :parentId OR (parent_id IS NULL AND :parentId IS NULL))")
     suspend fun getCategoryByName(name: String, parentId: Long?): CategoryDefEntity?
 
     /** 根据名称、父级和 flowSign 查找分类（用于去重检查） */
-    @Query("SELECT * FROM category_def WHERE name = :name AND parent_id IS :parentId AND flow_sign = :flowSign")
+    @Query("SELECT * FROM category_def WHERE name = :name AND (parent_id = :parentId OR (parent_id IS NULL AND :parentId IS NULL)) AND flow_sign = :flowSign")
     suspend fun getCategoryByNameAndSign(name: String, parentId: Long?, flowSign: Int): CategoryDefEntity?
 
     /** 插入分类 */
