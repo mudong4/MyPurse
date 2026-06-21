@@ -70,6 +70,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.Category
 import com.wyd.mypurse.ui.components.EmptyStateView
+import com.wyd.mypurse.ui.theme.categoryColor
 import kotlin.math.roundToInt
 
 /**
@@ -285,7 +286,7 @@ private fun CategoryItem(
     onMoveSubDown: (Int) -> Unit = {},
     dragModifier: Modifier = Modifier
 ) {
-    val categoryColor = if (category.color != 0L) Color(category.color.toULong()) else null
+    val catColor = categoryColor(category.color)
 
     Card(
         modifier = Modifier
@@ -293,9 +294,9 @@ private fun CategoryItem(
             .padding(horizontal = 12.dp, vertical = 2.dp)
             .then(dragModifier)
             .then(
-                if (categoryColor != null) Modifier.drawBehind {
+                if (catColor != null) Modifier.drawBehind {
                     drawRect(
-                        color = categoryColor,
+                        color = catColor,
                         topLeft = Offset(0f, 0f),
                         size = Size(4.dp.toPx(), size.height)
                     )
