@@ -1,6 +1,8 @@
 package com.wyd.mypurse.ui.statistics
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -63,6 +65,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -84,10 +87,16 @@ import com.wyd.mypurse.ui.components.YearWheelSheet
 import com.wyd.mypurse.ui.components.rememberDebounce
 import com.wyd.mypurse.ui.theme.AppBarChartBg
 import com.wyd.mypurse.ui.theme.AppBudgetBlue
+import com.wyd.mypurse.ui.theme.AppBudgetOrange
+import com.wyd.mypurse.ui.theme.AppCornerMedium
+import com.wyd.mypurse.ui.theme.AppCornerSmall
 import com.wyd.mypurse.ui.theme.AppDivider
 import com.wyd.mypurse.ui.theme.AppExpenseRed
 import com.wyd.mypurse.ui.theme.AppIncomeGreen
 import com.wyd.mypurse.ui.theme.AppSheetBg
+import com.wyd.mypurse.ui.theme.AppSpacingLg
+import com.wyd.mypurse.ui.theme.AppSpacingMd
+import com.wyd.mypurse.ui.theme.AppSpacingSm
 import com.wyd.mypurse.ui.theme.AppSurfaceBg
 import com.wyd.mypurse.ui.theme.DefaultChartColors
 import com.wyd.mypurse.ui.theme.categoryColor
@@ -189,6 +198,7 @@ fun StatisticsScreen(
                             granularity = uiState.granularity,
                             chartMode = uiState.trendChartMode,
                             labelStep = labelStep,
+                            budget = uiState.budget,
                             onToggleChartMode = { viewModel.toggleTrendChartMode() }
                         )
                 }
@@ -221,7 +231,7 @@ private fun CategoryPage(
     // 分类图卡片
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(AppCornerMedium),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -295,6 +305,7 @@ private fun CategoryPage(
                     ChartMode.DONUT -> DonutChart(
                         items = displayList,
                         total = total,
+                        isIncome = isShowingIncome,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(220.dp)
@@ -320,7 +331,7 @@ private fun CategoryPage(
 private fun OverviewCard(totalExpense: BigDecimal, totalIncome: BigDecimal) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(AppCornerMedium),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
@@ -359,6 +370,7 @@ private fun OverviewCard(totalExpense: BigDecimal, totalIncome: BigDecimal) {
 private fun DonutChart(
     items: List<CategoryAmount>,
     total: BigDecimal,
+    isIncome: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -391,10 +403,16 @@ private fun DonutChart(
             }
         }
 
-        // 中间文字
+        // 中间文字：显示总金额
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = if (total > BigDecimal.ZERO) "${dfPct.format(total.divide(total, 1, RoundingMode.HALF_UP).multiply(BigDecimal("100")))}%" else "0%",
+                text = "¥${df.format(total)}",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = "总${if (isIncome) "收入" else "支出"}",
                 fontSize = 11.sp,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -622,6 +640,7 @@ private fun TrendPage(
     granularity: Granularity,
     chartMode: ChartMode,
     labelStep: Int,
+    budget: BigDecimal? = null,
     onToggleChartMode: () -> Unit
 ) {
     // 选中数据点状态
@@ -629,7 +648,7 @@ private fun TrendPage(
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(AppCornerMedium),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -690,6 +709,7 @@ private fun TrendPage(
                         selectedIndex = selectedIndex,
                         labelStep = labelStep,
                         granularity = granularity,
+                        budget = budget,
                         onSelectIndex = { selectedIndex = it },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -701,6 +721,7 @@ private fun TrendPage(
                         selectedIndex = selectedIndex,
                         labelStep = labelStep,
                         granularity = granularity,
+                        budget = budget,
                         onSelectIndex = { selectedIndex = it },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -734,10 +755,22 @@ private fun BarChart(
     selectedIndex: Int?,
     labelStep: Int,
     granularity: Granularity,
+    budget: BigDecimal? = null,
     onSelectIndex: (Int?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
+
+    // 动画：每个柱子的高度比例
+    val animatedFractions = trend.mapIndexed { index, point ->
+        val target = point.total.divide(maxAmount, 4, RoundingMode.HALF_UP)
+            .toFloat().coerceIn(0.02f, 1f)
+        animateFloatAsState(
+            targetValue = target,
+            animationSpec = tween(durationMillis = 300),
+            label = "barFrac_$index"
+        ).value
+    }
 
     Canvas(
         modifier = modifier
@@ -761,11 +794,37 @@ private fun BarChart(
         val barSpacing = chartW / (barCount + 1)
         val barW = (barSpacing * 0.6f).coerceAtMost(28.dp.toPx())
 
+        // 预算参考线（仅月度粒度 + 有预算时显示）
+        if (granularity == Granularity.MONTH && budget != null && budget > BigDecimal.ZERO) {
+            val budgetFrac = if (maxAmount > BigDecimal.ZERO) {
+                budget.divide(maxAmount, 4, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
+            } else 0f
+            val budgetY = topPad + drawH * (1 - budgetFrac)
+            drawLine(
+                color = AppBudgetOrange.copy(alpha = 0.7f),
+                start = Offset(0f, budgetY),
+                end = Offset(chartW, budgetY),
+                strokeWidth = 1.5.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 4f), 0f)
+            )
+            // 预算标签
+            drawContext.canvas.nativeCanvas.drawText(
+                "预算 ¥${df.format(budget)}",
+                chartW - 4.dp.toPx(),
+                budgetY - 4.dp.toPx(),
+                android.graphics.Paint().apply {
+                    color = 0xFFFB8C00.toInt()
+                    textSize = 9.sp.toPx()
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                    isAntiAlias = true
+                }
+            )
+        }
+
         // 画柱子
         trend.forEachIndexed { index, point ->
             val x = barSpacing * (index + 1) - barW / 2
-            val hFrac = point.total.divide(maxAmount, 4, RoundingMode.HALF_UP)
-                .toFloat().coerceIn(0.02f, 1f)
+            val hFrac = animatedFractions[index]
             val barH = drawH * hFrac
             val y = topPad + drawH - barH
 
@@ -814,10 +873,22 @@ private fun LineChart(
     selectedIndex: Int?,
     labelStep: Int,
     granularity: Granularity,
+    budget: BigDecimal? = null,
     onSelectIndex: (Int?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
+
+    // 动画：每个数据点的高度比例
+    val animatedFractions = trend.mapIndexed { index, point ->
+        val target = point.total.divide(maxAmount, 4, RoundingMode.HALF_UP)
+            .toFloat().coerceIn(0f, 1f)
+        animateFloatAsState(
+            targetValue = target,
+            animationSpec = tween(durationMillis = 300),
+            label = "lineFrac_$index"
+        ).value
+    }
 
     Canvas(
         modifier = modifier
@@ -839,12 +910,37 @@ private fun LineChart(
 
         val barSpacing = chartW / (trend.size + 1)
 
+        // 预算参考线（仅月度粒度 + 有预算时显示）
+        if (granularity == Granularity.MONTH && budget != null && budget > BigDecimal.ZERO) {
+            val budgetFrac = if (maxAmount > BigDecimal.ZERO) {
+                budget.divide(maxAmount, 4, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
+            } else 0f
+            val budgetY = topPad + drawH * (1 - budgetFrac)
+            drawLine(
+                color = AppBudgetOrange.copy(alpha = 0.7f),
+                start = Offset(0f, budgetY),
+                end = Offset(chartW, budgetY),
+                strokeWidth = 1.5.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 4f), 0f)
+            )
+            drawContext.canvas.nativeCanvas.drawText(
+                "预算 ¥${df.format(budget)}",
+                chartW - 4.dp.toPx(),
+                budgetY - 4.dp.toPx(),
+                android.graphics.Paint().apply {
+                    color = 0xFFFB8C00.toInt()
+                    textSize = 9.sp.toPx()
+                    textAlign = android.graphics.Paint.Align.RIGHT
+                    isAntiAlias = true
+                }
+            )
+        }
+
         // 填充区域
         val fillPath = Path()
         trend.forEachIndexed { index, point ->
             val x = barSpacing * (index + 1)
-            val hFrac = point.total.divide(maxAmount, 4, RoundingMode.HALF_UP)
-                .toFloat().coerceIn(0f, 1f)
+            val hFrac = animatedFractions[index]
             val y = topPad + drawH * (1 - hFrac)
             if (index == 0) {
                 fillPath.moveTo(x, topPad + drawH)
@@ -861,18 +957,16 @@ private fun LineChart(
         val linePath = Path()
         trend.forEachIndexed { index, point ->
             val x = barSpacing * (index + 1)
-            val hFrac = point.total.divide(maxAmount, 4, RoundingMode.HALF_UP)
-                .toFloat().coerceIn(0f, 1f)
+            val hFrac = animatedFractions[index]
             val y = topPad + drawH * (1 - hFrac)
             if (index == 0) linePath.moveTo(x, y) else linePath.lineTo(x, y)
         }
         drawPath(path = linePath, color = DefaultChartColors.chartPrimary, style = Stroke(width = 2.5.dp.toPx()))
 
         // 数据点
-        trend.forEachIndexed { index, point ->
+        trend.forEachIndexed { index, _ ->
             val x = barSpacing * (index + 1)
-            val hFrac = point.total.divide(maxAmount, 4, RoundingMode.HALF_UP)
-                .toFloat().coerceIn(0f, 1f)
+            val hFrac = animatedFractions[index]
             val y = topPad + drawH * (1 - hFrac)
             val isSelected = index == selectedIndex
             drawCircle(
@@ -1450,7 +1544,7 @@ private fun QuarterSheet(
                         modifier = Modifier
                             .weight(1f)
                             .padding(6.dp)
-                            .clip(RoundedCornerShape(12.dp))
+                            .clip(RoundedCornerShape(AppCornerMedium))
                             .background(if (isSelected) DefaultChartColors.chartPrimary else MaterialTheme.colorScheme.surfaceVariant)
                             .clickable { onSelected(selectedYear, q) }
                             .padding(vertical = 16.dp),

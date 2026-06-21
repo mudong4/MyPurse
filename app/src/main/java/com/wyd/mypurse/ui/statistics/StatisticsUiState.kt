@@ -36,6 +36,9 @@ data class StatisticsUiState(
     // 数据库中实际有数据的年份（降序），供时间选择器使用
     val availableYears: List<Int> = emptyList(),
 
+    // 预算（用于趋势图参考线）
+    val budget: BigDecimal? = null,
+
     val isLoading: Boolean = true
 )
 

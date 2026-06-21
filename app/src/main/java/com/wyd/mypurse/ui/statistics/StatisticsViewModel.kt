@@ -2,6 +2,7 @@ package com.wyd.mypurse.ui.statistics
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.wyd.mypurse.data.local.dao.BudgetDao
 import com.wyd.mypurse.domain.usecase.GetStatisticsUseCase
 import com.wyd.mypurse.domain.usecase.GetStatisticsUseCase.Granularity
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -15,7 +16,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class StatisticsViewModel @Inject constructor(
-    private val getStatisticsUseCase: GetStatisticsUseCase
+    private val getStatisticsUseCase: GetStatisticsUseCase,
+    private val budgetDao: BudgetDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StatisticsUiState())
@@ -45,6 +47,7 @@ class StatisticsViewModel @Inject constructor(
                 granularity = current.granularity,
                 timestamp = current.currentTimestamp
             )
+            val budget = budgetDao.getBudget()?.amount
             _uiState.update { prev ->
                 prev.copy(
                     granularity = snapshot.granularity,
@@ -56,6 +59,7 @@ class StatisticsViewModel @Inject constructor(
                     trend = snapshot.trend,
                     expandedCategoryId = null,
                     subComposition = emptyList(),
+                    budget = budget,
                     isLoading = false
                 )
             }
