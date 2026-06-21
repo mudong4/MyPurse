@@ -74,6 +74,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.Transaction
 import com.wyd.mypurse.ui.components.ChineseDatePickerDialog
+import com.wyd.mypurse.ui.components.YearMonthWheelSheet
+import com.wyd.mypurse.ui.components.YearWheelSheet
 import com.wyd.mypurse.ui.components.rememberDebounce
 import com.wyd.mypurse.ui.theme.AppExpenseLightBg
 import com.wyd.mypurse.ui.theme.AppExpenseRed
@@ -253,21 +255,30 @@ fun TransactionListScreen(
                 )
             }
             TimeGranularity.MONTH -> {
-                YearMonthPickerDialog(
+                val years = remember(uiState.availableYears, uiState.currentYear) {
+                    val set = (uiState.availableYears + uiState.currentYear).toMutableSet()
+                    set.sortedDescending()
+                }
+                YearMonthWheelSheet(
+                    yearList = years,
+                    monthList = (1..12).toList(),
                     currentYear = uiState.currentYear,
                     currentMonth = uiState.currentMonth,
-                    availableYears = uiState.availableYears,
-                    onSelected = { year, month ->
+                    onConfirm = { year, month ->
                         viewModel.onYearMonthSelected(year, month)
                     },
                     onDismiss = { viewModel.dismissDatePicker() }
                 )
             }
             TimeGranularity.YEAR -> {
-                YearPickerDialog(
-                    currentYear = uiState.currentYear,
-                    availableYears = uiState.availableYears,
-                    onYearSelected = { viewModel.onYearSelected(it) },
+                val years = remember(uiState.availableYears, uiState.currentYear) {
+                    val set = (uiState.availableYears + uiState.currentYear).toMutableSet()
+                    set.sortedDescending()
+                }
+                YearWheelSheet(
+                    years = years,
+                    selectedYear = uiState.currentYear,
+                    onConfirm = { viewModel.onYearSelected(it) },
                     onDismiss = { viewModel.dismissDatePicker() }
                 )
             }
@@ -766,168 +777,6 @@ private fun TransactionItem(
     }
 }
 
-// ========== 选择器弹窗 ==========
-
-@Composable
-private fun YearMonthPickerDialog(
-    currentYear: Int,
-    currentMonth: Int,
-    availableYears: List<Int>,
-    onSelected: (Int, Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var selectedYear by remember { mutableStateOf(currentYear) }
-    var showYearList by remember { mutableStateOf(false) }
-
-    // 可用年份列表：数据库实际年份 + 当前年（确保当前年始终可选）
-    val years = remember(availableYears, currentYear) {
-        val set = (availableYears + currentYear).toMutableSet()
-        set.sortedDescending()
-    }
-
-    if (showYearList) {
-        // 步骤1：选年份
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = null,
-            text = {
-                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
-                    items(years) { year ->
-                        val isSelected = year == selectedYear
-                        Text(
-                            text = "${year}年",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
-                                    selectedYear = year
-                                    showYearList = false
-                                }
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                    else Color.Transparent
-                                )
-                                .padding(vertical = 12.dp, horizontal = 16.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                     else MaterialTheme.colorScheme.onSurface,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { showYearList = false }) {
-                    Text("取消")
-                }
-            }
-        )
-    } else {
-        // 步骤2：选月份（点击年份可切换）
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = "${selectedYear}年",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.clickable { showYearList = true }
-                    )
-                }
-            },
-            text = {
-                Column {
-                    val months = listOf("1月", "2月", "3月", "4月", "5月", "6月",
-                                        "7月", "8月", "9月", "10月", "11月", "12月")
-                    for (row in 0..2) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            for (col in 0..3) {
-                                val monthIdx = row * 4 + col
-                                val month = monthIdx + 1
-                                val isSelected = selectedYear == currentYear && month == currentMonth
-                                Button(
-                                    onClick = { onSelected(selectedYear, month) },
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isSelected)
-                                            MaterialTheme.colorScheme.primary
-                                        else
-                                            MaterialTheme.colorScheme.surfaceVariant
-                                    ),
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(4.dp),
-                                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
-                                ) {
-                                    Text(
-                                        months[monthIdx],
-                                        color = if (isSelected)
-                                            MaterialTheme.colorScheme.onPrimary
-                                        else
-                                            MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = onDismiss) {
-                    Text("取消")
-                }
-            }
-        )
-    }
-}
-
-@Composable
-private fun YearPickerDialog(
-    currentYear: Int,
-    availableYears: List<Int>,
-    onYearSelected: (Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    // 可用年份：数据库实际年份 + 当前年（确保当前年始终可选）
-    val years = remember(availableYears, currentYear) {
-        val set = (availableYears + currentYear).toMutableSet()
-        set.sortedDescending()
-    }
-
-        AlertDialog(
-            onDismissRequest = onDismiss,
-            title = null,
-            text = {
-                LazyColumn(modifier = Modifier.heightIn(max = 300.dp)) {
-                    items(years) { year ->
-                        val isSelected = year == currentYear
-                        Text(
-                            text = "${year}年",
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable { onYearSelected(year) }
-                                .background(
-                                    if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                    else Color.Transparent
-                                )
-                                .padding(vertical = 12.dp, horizontal = 16.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                     else MaterialTheme.colorScheme.onSurface,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = onDismiss) {
-                    Text("取消")
-                }
-            }
-        )
-}
 
 @Composable
 private fun EmptyState(message: String) {

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import kotlin.math.roundToInt
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -281,16 +282,40 @@ fun ChineseDatePickerDialog(
 }
 
 /**
- * 独立的年月滚轮选择器（作为新的 BottomSheet 弹出）。
- * 点击日历顶部的"2025年6月"后弹出，选择完后关闭回到日历。
+ * 年月双列滚轮选择器（公共组件，BottomSheet）。
+ *
+ * 使用场景：
+ * - ChineseDatePickerDialog 日历内切换年月
+ * - 统计页月粒度时间选择
+ * - 流水列表月粒度时间选择
+ *
+ * @param yearList       可选年份列表
+ * @param monthList      可选月份列表
+ * @param currentYear    初始年份
+ * @param currentMonth   初始月份
+ * @param title          顶部标题，null 则不显示。动态值可用 lambda：{ "${pickerYear}年${pickerMonth}月" }
+ * @param titleColor     标题颜色，默认 primary
+ * @param highlightColor 滚轮高亮条颜色，默认 primary 10% 透明
+ * @param selectedTextColor 滚轮选中文字颜色，默认 primary
+ * @param unselectedTextColor 滚轮未选中文字颜色，默认 onSurfaceVariant
+ * @param backgroundColor 滚轮背景色，默认 SheetBackground
+ * @param onConfirm      确定回调 (year, month)
+ * @param onDismiss      取消/关闭回调
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun YearMonthWheelSheet(
+internal fun YearMonthWheelSheet(
     yearList: List<Int>,
     monthList: List<Int>,
     currentYear: Int,
     currentMonth: Int,
+    title: (@Composable () -> Unit)? = null,
+    titleColor: Color = MaterialTheme.colorScheme.primary,
+    highlightColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+    selectedTextColor: Color = MaterialTheme.colorScheme.primary,
+    unselectedTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    backgroundColor: Color = SheetBackground,
+    confirmColor: Color = MaterialTheme.colorScheme.primary,
     onConfirm: (year: Int, month: Int) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -302,7 +327,7 @@ private fun YearMonthWheelSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = SheetBackground,
+        containerColor = backgroundColor,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
     ) {
         Column(
@@ -311,6 +336,12 @@ private fun YearMonthWheelSheet(
                 .fillMaxWidth()
                 .navigationBarsPadding()
         ) {
+            // 可选的标题行
+            if (title != null) {
+                title()
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             // 滚轮区域
             Row(
                 modifier = Modifier
@@ -324,7 +355,11 @@ private fun YearMonthWheelSheet(
                         .takeIf { it >= 0 } ?: 0,
                     displayText = { "${it}年" },
                     onSelected = { pickerYear = it },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    highlightColor = highlightColor,
+                    selectedTextColor = selectedTextColor,
+                    unselectedTextColor = unselectedTextColor,
+                    backgroundColor = backgroundColor
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 WheelPicker(
@@ -333,7 +368,11 @@ private fun YearMonthWheelSheet(
                         .takeIf { it >= 0 } ?: 0,
                     displayText = { "${it}月" },
                     onSelected = { pickerMonth = it },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.weight(1f),
+                    highlightColor = highlightColor,
+                    selectedTextColor = selectedTextColor,
+                    unselectedTextColor = unselectedTextColor,
+                    backgroundColor = backgroundColor
                 )
             }
 
@@ -351,7 +390,82 @@ private fun YearMonthWheelSheet(
                     Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 TextButton(onClick = { onConfirm(pickerYear, pickerMonth) }) {
-                    Text("确定", color = MaterialTheme.colorScheme.primary)
+                    Text("确定", color = confirmColor)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 年份单列滚轮选择器（公共组件，BottomSheet）。
+ *
+ * 使用场景：
+ * - 统计页年粒度时间选择
+ * - 统计页 QuarterSheet 内切换年份
+ * - 流水列表年粒度时间选择
+ *
+ * @param years         可选年份列表
+ * @param selectedYear  初始选中年份
+ * @param highlightColor 滚轮高亮条颜色
+ * @param selectedTextColor 滚轮选中文字颜色
+ * @param unselectedTextColor 滚轮未选中文字颜色
+ * @param backgroundColor 滚轮背景色
+ * @param confirmColor  确定按钮颜色
+ * @param onConfirm     确定回调
+ * @param onDismiss     取消/关闭回调
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun YearWheelSheet(
+    years: List<Int>,
+    selectedYear: Int,
+    highlightColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
+    selectedTextColor: Color = MaterialTheme.colorScheme.primary,
+    unselectedTextColor: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    backgroundColor: Color = SheetBackground,
+    confirmColor: Color = MaterialTheme.colorScheme.primary,
+    onConfirm: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var curYear by remember { mutableIntStateOf(selectedYear) }
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = backgroundColor,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxWidth().navigationBarsPadding()
+        ) {
+            Text(
+                "选择年份",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
+                textAlign = TextAlign.Center
+            )
+            HorizontalDivider(color = com.wyd.mypurse.ui.theme.AppDivider)
+            WheelPicker(
+                items = years,
+                selectedIndex = years.indexOf(curYear).coerceAtLeast(0),
+                displayText = { "${it}年" },
+                onSelected = { curYear = it },
+                modifier = Modifier.fillMaxWidth().height(200.dp),
+                highlightColor = highlightColor,
+                selectedTextColor = selectedTextColor,
+                unselectedTextColor = unselectedTextColor,
+                backgroundColor = backgroundColor
+            )
+            HorizontalDivider(color = com.wyd.mypurse.ui.theme.AppDivider)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                TextButton(onClick = onDismiss) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                TextButton(onClick = { onConfirm(curYear) }) {
+                    Text("确定", color = confirmColor)
                 }
             }
         }

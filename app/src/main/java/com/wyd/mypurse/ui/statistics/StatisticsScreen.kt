@@ -79,6 +79,8 @@ import com.wyd.mypurse.domain.model.TrendPoint
 import com.wyd.mypurse.domain.usecase.GetStatisticsUseCase.Granularity
 import com.wyd.mypurse.ui.components.EmptyStateText
 import com.wyd.mypurse.ui.components.WheelPicker
+import com.wyd.mypurse.ui.components.YearMonthWheelSheet
+import com.wyd.mypurse.ui.components.YearWheelSheet
 import com.wyd.mypurse.ui.components.rememberDebounce
 import com.wyd.mypurse.ui.theme.AppBarChartBg
 import com.wyd.mypurse.ui.theme.AppBudgetBlue
@@ -1139,17 +1141,30 @@ private fun TimePickerDialog(
     }
 
     when (granularity) {
-        Granularity.YEAR -> YearSheet(
+        Granularity.YEAR -> YearWheelSheet(
             years = years,
-            curYear = curYear,
-            onSelect = onSelect,
+            selectedYear = curYear,
+            highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
+            selectedTextColor = DefaultChartColors.chartPrimary,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            backgroundColor = SheetBg,
+            confirmColor = DefaultChartColors.chartPrimary,
+            onConfirm = { onSelect(makeTs(it, 1, 1)) },
             onDismiss = onDismiss
         )
-        Granularity.MONTH -> YearMonthSheet(
+        Granularity.MONTH -> YearMonthWheelSheet(
+            yearList = years,
+            monthList = (1..12).toList(),
             currentYear = curYear,
             currentMonth = curMonth,
-            years = years,
-            onSelected = { year, month ->
+            title = { Text("${curYear}年${curMonth}月", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DefaultChartColors.chartPrimary, modifier = Modifier.padding(top = 16.dp)) },
+            titleColor = DefaultChartColors.chartPrimary,
+            highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
+            selectedTextColor = DefaultChartColors.chartPrimary,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            backgroundColor = SheetBg,
+            confirmColor = DefaultChartColors.chartPrimary,
+            onConfirm = { year, month ->
                 onSelect(makeTs(year, month, 1))
             },
             onDismiss = onDismiss
@@ -1200,137 +1215,6 @@ private fun makeTs(year: Int, month: Int, day: Int): Long {
     }.timeInMillis
 }
 
-// ========== 年模式：底部 Sheet 年份列表 ==========
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun YearSheet(
-    years: List<Int>,
-    curYear: Int,
-    onSelect: (Long) -> Unit,
-    onDismiss: () -> Unit
-) {
-    androidx.compose.material3.ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SheetBg,
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-    ) {
-        Column(modifier = Modifier.navigationBarsPadding()) {
-            Text(
-                "选择年份",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
-                textAlign = TextAlign.Center
-            )
-            HorizontalDivider(color = AppDivider)
-            LazyColumn(modifier = Modifier.heightIn(max = 350.dp)) {
-                items(years) { year ->
-                    val isSelected = year == curYear
-                    Text(
-                        text = "${year}年",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                onSelect(makeTs(year, 1, 1))
-                            }
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                else Color.Transparent
-                            )
-                            .padding(vertical = 14.dp, horizontal = 20.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                        else MaterialTheme.colorScheme.onSurface,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                        textAlign = TextAlign.Center,
-                        fontSize = 16.sp
-                    )
-                }
-            }
-        }
-    }
-}
-
-// ========== 月模式：底部 Sheet 双列滚轮（年 | 月） ==========
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun YearMonthSheet(
-    currentYear: Int,
-    currentMonth: Int,
-    years: List<Int>,
-    onSelected: (Int, Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var selectedYear by remember { mutableStateOf(currentYear) }
-    var selectedMonth by remember { mutableStateOf(currentMonth) }
-
-    androidx.compose.material3.ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SheetBg,
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-        ) {
-            Text(
-                "${selectedYear}年${selectedMonth}月",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = DefaultChartColors.chartPrimary,
-                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                WheelPicker(
-                    items = years,
-                    selectedIndex = years.indexOf(selectedYear).coerceAtLeast(0),
-                    displayText = { "${it}年" },
-                    onSelected = { selectedYear = it },
-                    modifier = Modifier.weight(1f),
-                    highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
-                    selectedTextColor = DefaultChartColors.chartPrimary,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    backgroundColor = SheetBg
-                )
-                Spacer(Modifier.width(16.dp))
-                WheelPicker(
-                    items = (1..12).toList(),
-                    selectedIndex = selectedMonth - 1,
-                    displayText = { "${it}月" },
-                    onSelected = { selectedMonth = it },
-                    modifier = Modifier.weight(1f),
-                    highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
-                    selectedTextColor = DefaultChartColors.chartPrimary,
-                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    backgroundColor = SheetBg
-                )
-            }
-            Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = AppDivider)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(onClick = onDismiss) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                TextButton(onClick = { onSelected(selectedYear, selectedMonth) }) {
-                    Text("确定", color = DefaultChartColors.chartPrimary)
-                }
-            }
-        }
-    }
-}
-
 // ========== 日/周模式：底部 Sheet 日历 ==========
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -1368,11 +1252,17 @@ private fun CalendarSheet(
 
     // 年月并排双滚轮选择（覆盖在日历上方）
     if (showYearMonthPicker) {
-        YearMonthSheet(
+        YearMonthWheelSheet(
+            yearList = years,
+            monthList = (1..12).toList(),
             currentYear = selectedYear,
             currentMonth = selectedMonth,
-            years = years,
-            onSelected = { y, m ->
+            highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
+            selectedTextColor = DefaultChartColors.chartPrimary,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            backgroundColor = SheetBg,
+            confirmColor = DefaultChartColors.chartPrimary,
+            onConfirm = { y, m ->
                 selectedYear = y
                 selectedMonth = m
                 showYearMonthPicker = false
@@ -1519,6 +1409,11 @@ private fun QuarterSheet(
         YearWheelSheet(
             years = years,
             selectedYear = selectedYear,
+            highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
+            selectedTextColor = DefaultChartColors.chartPrimary,
+            unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            backgroundColor = SheetBg,
+            confirmColor = DefaultChartColors.chartPrimary,
             onConfirm = { selectedYear = it; showYearPicker = false },
             onDismiss = { showYearPicker = false }
         )
@@ -1580,59 +1475,8 @@ private fun QuarterSheet(
     }
 }
 
-// ========== 年份滚轮选择（BottomSheet，供 QuarterSheet 复用） ==========
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun YearWheelSheet(
-    years: List<Int>,
-    selectedYear: Int,
-    onConfirm: (Int) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var curYear by remember { mutableIntStateOf(selectedYear) }
-    androidx.compose.material3.ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        containerColor = SheetBg,
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxWidth().navigationBarsPadding()
-        ) {
-            Text(
-                "选择年份",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 12.dp),
-                textAlign = TextAlign.Center
-            )
-            HorizontalDivider(color = AppDivider)
-            WheelPicker(
-                items = years,
-                selectedIndex = years.indexOf(curYear).coerceAtLeast(0),
-                displayText = { "${it}年" },
-                onSelected = { curYear = it },
-                modifier = Modifier.fillMaxWidth().height(200.dp),
-                highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
-                selectedTextColor = DefaultChartColors.chartPrimary,
-                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                backgroundColor = SheetBg
-            )
-            HorizontalDivider(color = AppDivider)
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                horizontalArrangement = Arrangement.End
-            ) {
-                TextButton(onClick = onDismiss) { Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                TextButton(onClick = { onConfirm(curYear) }) {
-                    Text("确定", color = DefaultChartColors.chartPrimary)
-                }
-            }
-        }
-    }
-}
+
 
 
 
