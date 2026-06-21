@@ -22,7 +22,13 @@ data class CategoryManageUiState(
     /** 删除确认弹窗状态 */
     val deleteDialog: DeleteDialogState? = null,
     /** 新增/编辑弹窗 */
-    val editDialog: EditDialogState? = null
+    val editDialog: EditDialogState? = null,
+    /** 批量操作模式 */
+    val isBatchMode: Boolean = false,
+    /** 批量模式下选中的一级分类 ID 集合 */
+    val selectedCategoryIds: Set<Long> = emptySet(),
+    /** 批量删除确认弹窗 */
+    val batchDeleteDialog: BatchDeleteDialogState? = null
 ) {
     /** 当前 Tab 下的一级分类列表 */
     val currentTabCategories: List<Category>
@@ -37,4 +43,8 @@ data class DeleteDialogState(
 data class EditDialogState(
     val category: Category? = null, // null 表示新增
     val parentId: Long? = null
+)
+
+data class BatchDeleteDialogState(
+    val selectedCount: Int
 )

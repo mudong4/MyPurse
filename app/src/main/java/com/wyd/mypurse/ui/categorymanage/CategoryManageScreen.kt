@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Menu
@@ -28,6 +29,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -88,14 +90,56 @@ fun CategoryManageScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("分类管理") },
-                actions = {
-                    TextButton(onClick = { viewModel.onRestoreDefaults() }) {
-                        Text("恢复默认")
+            if (uiState.isBatchMode) {
+                TopAppBar(
+                    title = { Text("已选 ${uiState.selectedCategoryIds.size} 项") },
+                    navigationIcon = {
+                        TextButton(onClick = { viewModel.onToggleBatchMode() }) {
+                            Text("取消")
+                        }
+                    },
+                    actions = {
+                        TextButton(onClick = { viewModel.onToggleSelectAll() }) {
+                            val allSelected = uiState.currentTabCategories.isNotEmpty() &&
+                                    uiState.selectedCategoryIds.containsAll(uiState.currentTabCategories.map { it.id })
+                            Text(if (allSelected) "取消全选" else "全选")
+                        }
+                        TextButton(
+                            onClick = { viewModel.onShowBatchDeleteDialog() },
+                            enabled = uiState.selectedCategoryIds.isNotEmpty()
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = if (uiState.selectedCategoryIds.isNotEmpty())
+                                    MaterialTheme.colorScheme.error
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                "删除(${uiState.selectedCategoryIds.size})",
+                                color = if (uiState.selectedCategoryIds.isNotEmpty())
+                                    MaterialTheme.colorScheme.error
+                                else
+                                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                            )
+                        }
                     }
-                }
-            )
+                )
+            } else {
+                TopAppBar(
+                    title = { Text("分类管理") },
+                    actions = {
+                        TextButton(onClick = { viewModel.onToggleBatchMode() }) {
+                            Text("批量操作")
+                        }
+                        TextButton(onClick = { viewModel.onRestoreDefaults() }) {
+                            Text("恢复默认")
+                        }
+                    }
+                )
+            }
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
@@ -187,13 +231,16 @@ fun CategoryManageScreen(
                             isExpanded = uiState.expandedParentId == category.id,
                             subCategories = uiState.subCategories[category.id] ?: emptyList(),
                             isDragging = isDragging,
+                            isBatchMode = uiState.isBatchMode,
+                            isSelected = category.id in uiState.selectedCategoryIds,
                             onToggleExpand = { viewModel.onToggleExpand(category.id) },
                             onEdit = { viewModel.onShowEditDialog(category) },
                             onDelete = { viewModel.onShowDeleteDialog(category) },
                             onEditSub = { sub -> viewModel.onShowEditDialog(sub) },
                             onDeleteSub = { sub -> viewModel.onShowDeleteDialog(sub) },
                             onAddSub = { viewModel.onShowAddDialog(category.id) },
-                            dragModifier = Modifier.pointerInput(category.id) {
+                            onToggleSelect = { viewModel.onToggleSelect(category.id) },
+                            dragModifier = if (!uiState.isBatchMode) Modifier.pointerInput(category.id) {
                                 detectDragGesturesAfterLongPress(
                                     onDragStart = {
                                         draggedItemIndex = currentIndex
@@ -217,7 +264,7 @@ fun CategoryManageScreen(
                                         dragOffsetY += offset.y
                                     }
                                 )
-                            }
+                            } else Modifier
                         )
                     }
                 }
@@ -258,6 +305,16 @@ fun CategoryManageScreen(
             onDeleteWithRecords = { viewModel.onDeleteWithRecords() }
         )
     }
+
+    // 批量删除确认弹窗
+    uiState.batchDeleteDialog?.let { dialog ->
+        BatchDeleteDialog(
+            count = dialog.selectedCount,
+            onDismiss = { viewModel.onDismissBatchDeleteDialog() },
+            onDeleteKeepRecords = { viewModel.onBatchDeleteKeepRecords() },
+            onDeleteWithRecords = { viewModel.onBatchDeleteWithRecords() }
+        )
+    }
 }
 
 @Composable
@@ -266,12 +323,15 @@ private fun CategoryItem(
     isExpanded: Boolean,
     subCategories: List<Category>,
     isDragging: Boolean = false,
+    isBatchMode: Boolean = false,
+    isSelected: Boolean = false,
     onToggleExpand: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onEditSub: (Category) -> Unit = {},
     onDeleteSub: (Category) -> Unit = {},
     onAddSub: () -> Unit,
+    onToggleSelect: () -> Unit = {},
     dragModifier: Modifier = Modifier
 ) {
     Card(
@@ -294,7 +354,12 @@ private fun CategoryItem(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(start = 4.dp, end = 16.dp, top = 12.dp, bottom = 12.dp),
+                    .padding(
+                        start = if (isBatchMode) 0.dp else 4.dp,
+                        end = 16.dp,
+                        top = 12.dp,
+                        bottom = 12.dp
+                    ),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -302,16 +367,26 @@ private fun CategoryItem(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
                         .weight(1f)
-                        .clickable { onToggleExpand() }
+                        .then(if (!isBatchMode) Modifier.clickable { onToggleExpand() } else Modifier)
                 ) {
-                    // 拖拽手柄
-                    Icon(
-                        imageVector = Icons.Default.Menu,
-                        contentDescription = "长按拖拽排序",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(end = 4.dp)
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isBatchMode) {
+                        Checkbox(
+                            checked = isSelected,
+                            onCheckedChange = { onToggleSelect() }
+                        )
+                    } else {
+                        // 拖拽手柄
+                        Icon(
+                            imageVector = Icons.Default.Menu,
+                            contentDescription = "长按拖拽排序",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 4.dp)
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = if (!isBatchMode) Modifier else Modifier.clickable { onToggleExpand() }
+                    ) {
                         Text(
                             text = category.name,
                             style = MaterialTheme.typography.titleMedium,
@@ -324,19 +399,21 @@ private fun CategoryItem(
                         )
                     }
                 }
-                Row {
-                    TextButton(onClick = onEdit) { Text("编辑") }
-                    TextButton(
-                        onClick = onDelete,
-                        colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error
+                if (!isBatchMode) {
+                    Row {
+                        TextButton(onClick = onEdit) { Text("编辑") }
+                        TextButton(
+                            onClick = onDelete,
+                            colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.error
+                            )
+                        ) { Text("删除") }
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp
+                            else Icons.Default.KeyboardArrowDown,
+                            contentDescription = "展开/折叠"
                         )
-                    ) { Text("删除") }
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp
-                        else Icons.Default.KeyboardArrowDown,
-                        contentDescription = "展开/折叠"
-                    )
+                    }
                 }
             }
 
@@ -349,7 +426,7 @@ private fun CategoryItem(
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.4f))
                 ) {
-                    subCategories.forEachIndexed { index, sub ->
+                    subCategories.forEach { sub ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -362,26 +439,30 @@ private fun CategoryItem(
                                 style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.weight(1f)
                             )
-                            Row {
-                                TextButton(onClick = { onEditSub(sub) }) { Text("编辑") }
-                                TextButton(
-                                    onClick = { onDeleteSub(sub) },
-                                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                                        contentColor = MaterialTheme.colorScheme.error
-                                    )
-                                ) { Text("删除") }
+                            if (!isBatchMode) {
+                                Row {
+                                    TextButton(onClick = { onEditSub(sub) }) { Text("编辑") }
+                                    TextButton(
+                                        onClick = { onDeleteSub(sub) },
+                                        colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                            contentColor = MaterialTheme.colorScheme.error
+                                        )
+                                    ) { Text("删除") }
+                                }
                             }
                         }
                     }
-                    // 新增二级分类
-                    TextButton(
-                        onClick = onAddSub,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                        Text("新增二级分类")
+                    // 新增二级分类（仅非批量模式）
+                    if (!isBatchMode) {
+                        TextButton(
+                            onClick = onAddSub,
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                            Text("新增二级分类")
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
                     }
-                    Spacer(modifier = Modifier.height(8.dp))
                 }
             }
         }
@@ -490,6 +571,69 @@ private fun CategoryDeleteDialog(
                         )
                         Text(
                             text = "将同时删除该分类下的所有流水记录",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("取消") }
+        }
+    )
+}
+
+/**
+ * 批量删除确认弹窗。
+ * 与单个删除结构相同，但提示文字针对批量操作。
+ */
+@Composable
+private fun BatchDeleteDialog(
+    count: Int,
+    onDismiss: () -> Unit,
+    onDeleteKeepRecords: () -> Unit,
+    onDeleteWithRecords: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("批量删除 $count 个分类") },
+        text = {
+            Column {
+                Text("选中分类的子分类也将一并删除。", color = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.height(12.dp))
+                Text("请选择删除方式：")
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 选项 1：保留记录
+                TextButton(
+                    onClick = onDeleteKeepRecords,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text("保留历史记录", fontWeight = FontWeight.Medium)
+                        Text(
+                            text = "仅删除分类定义，已存在的流水记录保留原分类名称",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // 选项 2：删除记录
+                TextButton(
+                    onClick = onDeleteWithRecords,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Text(
+                            "删除分类及所有关联记录",
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = "将同时删除这些分类下的所有流水记录，不可恢复",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )

@@ -169,6 +169,87 @@ class CategoryManageViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null)
     }
 
+    // ========== 批量操作 ==========
+
+    /** 切换批量操作模式 */
+    fun onToggleBatchMode() {
+        val current = _uiState.value
+        _uiState.value = current.copy(
+            isBatchMode = !current.isBatchMode,
+            selectedCategoryIds = emptySet(),
+            expandedParentId = null // 退出展开状态，避免视觉干扰
+        )
+    }
+
+    /** 切换某个一级分类的选中状态 */
+    fun onToggleSelect(categoryId: Long) {
+        val current = _uiState.value
+        val newSet = if (categoryId in current.selectedCategoryIds) {
+            current.selectedCategoryIds - categoryId
+        } else {
+            current.selectedCategoryIds + categoryId
+        }
+        _uiState.value = current.copy(selectedCategoryIds = newSet)
+    }
+
+    /** 全选/取消全选当前 Tab 下的一级分类 */
+    fun onToggleSelectAll() {
+        val current = _uiState.value
+        val allIds = current.currentTabCategories.map { it.id }.toSet()
+        val newSet = if (current.selectedCategoryIds.containsAll(allIds)) {
+            emptySet()
+        } else {
+            allIds
+        }
+        _uiState.value = current.copy(selectedCategoryIds = newSet)
+    }
+
+    /** 显示批量删除确认弹窗 */
+    fun onShowBatchDeleteDialog() {
+        val current = _uiState.value
+        if (current.selectedCategoryIds.isEmpty()) return
+        _uiState.value = current.copy(
+            batchDeleteDialog = BatchDeleteDialogState(selectedCount = current.selectedCategoryIds.size)
+        )
+    }
+
+    /** 关闭批量删除确认弹窗 */
+    fun onDismissBatchDeleteDialog() {
+        _uiState.value = _uiState.value.copy(batchDeleteDialog = null)
+    }
+
+    /** 批量删除 — 保留记录 */
+    fun onBatchDeleteKeepRecords() {
+        viewModelScope.launch {
+            val ids = _uiState.value.selectedCategoryIds.toList()
+            for (id in ids) {
+                categoryRepository.deleteCategory(id)
+            }
+            _uiState.value = _uiState.value.copy(
+                batchDeleteDialog = null,
+                selectedCategoryIds = emptySet(),
+                isBatchMode = false
+            )
+            _event.emit(CategoryManageEvent.ShowToast("已删除 ${ids.size} 个分类（记录已保留）"))
+        }
+    }
+
+    /** 批量删除 — 删除记录 */
+    fun onBatchDeleteWithRecords() {
+        viewModelScope.launch {
+            val ids = _uiState.value.selectedCategoryIds.toList()
+            for (id in ids) {
+                categoryRepository.deleteCategoryWithRecords(id)
+            }
+            _uiState.value = _uiState.value.copy(
+                batchDeleteDialog = null,
+                selectedCategoryIds = emptySet(),
+                isBatchMode = false
+            )
+            _event.emit(CategoryManageEvent.ShowToast("已删除 ${ids.size} 个分类及关联记录"))
+        }
+    }
+
     /**
      * 拖拽排序：交换当前 Tab 下 fromIndex 和 toIndex 两个一级分类的 sortOrder 并持久化。
      * 仅在 onDragEnd 时调用一次，拖拽过程中不触发数据变更。
