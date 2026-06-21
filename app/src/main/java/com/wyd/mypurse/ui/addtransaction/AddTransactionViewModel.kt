@@ -343,4 +343,13 @@ class AddTransactionViewModel @Inject constructor(
             _uiState.update { it.copy(topLevelCategories = categories) }
         }
     }
+
+    /**
+     * 从外部触发刷新分类列表（例如从分类管理页返回后）。
+     * 保持当前选中的流水类型。
+     */
+    fun refreshCategories() {
+        val currentSign = _uiState.value.selectedFlowType.sign
+        loadTopLevelCategories(currentSign)
+    }
 }

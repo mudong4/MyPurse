@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -32,7 +31,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -55,22 +53,16 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.Category
 import com.wyd.mypurse.ui.components.EmptyStateView
-import com.wyd.mypurse.ui.theme.categoryColor
 import kotlin.math.roundToInt
 
 /**
@@ -201,8 +193,6 @@ fun CategoryManageScreen(
                             onEditSub = { sub -> viewModel.onShowEditDialog(sub) },
                             onDeleteSub = { sub -> viewModel.onShowDeleteDialog(sub) },
                             onAddSub = { viewModel.onShowAddDialog(category.id) },
-                            onMoveSubUp = { index -> viewModel.onMoveSubCategory(category.id, index, -1) },
-                            onMoveSubDown = { index -> viewModel.onMoveSubCategory(category.id, index, 1) },
                             dragModifier = Modifier.pointerInput(category.id) {
                                 detectDragGesturesAfterLongPress(
                                     onDragStart = {
@@ -282,26 +272,13 @@ private fun CategoryItem(
     onEditSub: (Category) -> Unit = {},
     onDeleteSub: (Category) -> Unit = {},
     onAddSub: () -> Unit,
-    onMoveSubUp: (Int) -> Unit = {},
-    onMoveSubDown: (Int) -> Unit = {},
     dragModifier: Modifier = Modifier
 ) {
-    val catColor = categoryColor(category.color)
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 2.dp)
-            .then(dragModifier)
-            .then(
-                if (catColor != null) Modifier.drawBehind {
-                    drawRect(
-                        color = catColor,
-                        topLeft = Offset(0f, 0f),
-                        size = Size(4.dp.toPx(), size.height)
-                    )
-                } else Modifier
-            ),
+            .then(dragModifier),
         colors = CardDefaults.cardColors(
             containerColor = if (isDragging)
                 MaterialTheme.colorScheme.primaryContainer
@@ -380,48 +357,11 @@ private fun CategoryItem(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
+                            Text(
+                                text = sub.name,
+                                style = MaterialTheme.typography.bodyMedium,
                                 modifier = Modifier.weight(1f)
-                            ) {
-                                // 10a-2: ▲▼ 上下移动按钮
-                                Column {
-                                    IconButton(
-                                        onClick = { onMoveSubUp(index) },
-                                        enabled = index > 0,
-                                        modifier = Modifier.size(20.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.KeyboardArrowUp,
-                                            contentDescription = "上移",
-                                            modifier = Modifier.size(16.dp),
-                                            tint = if (index > 0)
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            else
-                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                                        )
-                                    }
-                                    IconButton(
-                                        onClick = { onMoveSubDown(index) },
-                                        enabled = index < subCategories.size - 1,
-                                        modifier = Modifier.size(20.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.KeyboardArrowDown,
-                                            contentDescription = "下移",
-                                            modifier = Modifier.size(16.dp),
-                                            tint = if (index < subCategories.size - 1)
-                                                MaterialTheme.colorScheme.onSurfaceVariant
-                                            else
-                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
-                                        )
-                                    }
-                                }
-                                Text(
-                                    text = sub.name,
-                                    style = MaterialTheme.typography.bodyMedium
-                                )
-                            }
+                            )
                             Row {
                                 TextButton(onClick = { onEditSub(sub) }) { Text("编辑") }
                                 TextButton(
