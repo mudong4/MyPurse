@@ -170,6 +170,39 @@ class CategoryManageViewModel @Inject constructor(
     }
 
     /**
+     * 二级分类上下移动：交换 parentId 下 fromIndex 和 fromIndex+direction 两项的 sortOrder。
+     * @param direction -1=上移（▲），+1=下移（▼）
+     */
+    fun onMoveSubCategory(parentId: Long, fromIndex: Int, direction: Int) {
+        val state = _uiState.value
+        val subs = state.subCategories[parentId]?.toMutableList() ?: return
+        val toIndex = fromIndex + direction
+        if (fromIndex < 0 || fromIndex >= subs.size) return
+        if (toIndex < 0 || toIndex >= subs.size) return
+
+        // 交换 sortOrder 值（保持各自其他字段不变）
+        val fromSort = subs[fromIndex].sortOrder
+        val toSort = subs[toIndex].sortOrder
+        subs[fromIndex] = subs[fromIndex].copy(sortOrder = toSort)
+        subs[toIndex] = subs[toIndex].copy(sortOrder = fromSort)
+
+        // 乐观更新 UI
+        val newSubCategories = state.subCategories.toMutableMap()
+        newSubCategories[parentId] = subs
+        _uiState.value = state.copy(subCategories = newSubCategories)
+
+        // 异步持久化（一次事务交换两项 sortOrder）
+        viewModelScope.launch {
+            categoryRepository.batchUpdateSortOrder(
+                mapOf(
+                    subs[fromIndex].id to subs[fromIndex].sortOrder,
+                    subs[toIndex].id to subs[toIndex].sortOrder
+                )
+            )
+        }
+    }
+
+    /**
      * 拖拽排序：交换当前 Tab 下 fromIndex 和 toIndex 两个一级分类的 sortOrder 并持久化。
      * 仅在 onDragEnd 时调用一次，拖拽过程中不触发数据变更。
      */

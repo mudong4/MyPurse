@@ -1,5 +1,6 @@
 package com.wyd.mypurse.ui.categorymanage
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
@@ -31,6 +32,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -53,6 +55,10 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -194,6 +200,8 @@ fun CategoryManageScreen(
                             onEditSub = { sub -> viewModel.onShowEditDialog(sub) },
                             onDeleteSub = { sub -> viewModel.onShowDeleteDialog(sub) },
                             onAddSub = { viewModel.onShowAddDialog(category.id) },
+                            onMoveSubUp = { index -> viewModel.onMoveSubCategory(category.id, index, -1) },
+                            onMoveSubDown = { index -> viewModel.onMoveSubCategory(category.id, index, 1) },
                             dragModifier = Modifier.pointerInput(category.id) {
                                 detectDragGesturesAfterLongPress(
                                     onDragStart = {
@@ -273,13 +281,26 @@ private fun CategoryItem(
     onEditSub: (Category) -> Unit = {},
     onDeleteSub: (Category) -> Unit = {},
     onAddSub: () -> Unit,
+    onMoveSubUp: (Int) -> Unit = {},
+    onMoveSubDown: (Int) -> Unit = {},
     dragModifier: Modifier = Modifier
 ) {
+    val categoryColor = if (category.color != 0L) Color(category.color.toULong()) else null
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 2.dp)
-            .then(dragModifier),
+            .then(dragModifier)
+            .then(
+                if (categoryColor != null) Modifier.drawBehind {
+                    drawRect(
+                        color = categoryColor,
+                        topLeft = Offset(0f, 0f),
+                        size = Size(4.dp.toPx(), size.height)
+                    )
+                } else Modifier
+            ),
         colors = CardDefaults.cardColors(
             containerColor = if (isDragging)
                 MaterialTheme.colorScheme.primaryContainer
@@ -291,6 +312,7 @@ private fun CategoryItem(
         )
     ) {
         Column {
+            // 10a-1: 整行（手柄+名称+子项计数）可点击展开/折叠
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -300,7 +322,9 @@ private fun CategoryItem(
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onToggleExpand() }
                 ) {
                     // 拖拽手柄
                     Icon(
@@ -309,11 +333,7 @@ private fun CategoryItem(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(end = 4.dp)
                     )
-                    // 点击名称区域展开/折叠
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { onToggleExpand() }
-                    ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
                             text = category.name,
                             style = MaterialTheme.typography.titleMedium,
@@ -345,40 +365,83 @@ private fun CategoryItem(
             // 二级分类列表
             if (isExpanded) {
                 HorizontalDivider()
-                subCategories.forEach { sub ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 32.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = sub.name,
-                                style = MaterialTheme.typography.bodyMedium
-                            )
-                        }
-                        Row {
-                            TextButton(onClick = { onEditSub(sub) }) { Text("编辑") }
-                            TextButton(
-                                onClick = { onDeleteSub(sub) },
-                                colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
-                                    contentColor = MaterialTheme.colorScheme.error
+                // 10a-3: 二级区域加浅色背景，与一级区分
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.4f))
+                ) {
+                    subCategories.forEachIndexed { index, sub ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 32.dp, end = 16.dp, top = 4.dp, bottom = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                // 10a-2: ▲▼ 上下移动按钮
+                                Column {
+                                    IconButton(
+                                        onClick = { onMoveSubUp(index) },
+                                        enabled = index > 0,
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.KeyboardArrowUp,
+                                            contentDescription = "上移",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = if (index > 0)
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { onMoveSubDown(index) },
+                                        enabled = index < subCategories.size - 1,
+                                        modifier = Modifier.size(20.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.KeyboardArrowDown,
+                                            contentDescription = "下移",
+                                            modifier = Modifier.size(16.dp),
+                                            tint = if (index < subCategories.size - 1)
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+                                        )
+                                    }
+                                }
+                                Text(
+                                    text = sub.name,
+                                    style = MaterialTheme.typography.bodyMedium
                                 )
-                            ) { Text("删除") }
+                            }
+                            Row {
+                                TextButton(onClick = { onEditSub(sub) }) { Text("编辑") }
+                                TextButton(
+                                    onClick = { onDeleteSub(sub) },
+                                    colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.error
+                                    )
+                                ) { Text("删除") }
+                            }
                         }
                     }
+                    // 新增二级分类
+                    TextButton(
+                        onClick = onAddSub,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
+                        Text("新增二级分类")
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                 }
-                // 新增二级分类
-                TextButton(
-                    onClick = onAddSub,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.padding(end = 4.dp))
-                    Text("新增二级分类")
-                }
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
