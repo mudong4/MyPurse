@@ -51,4 +51,14 @@ sealed class Route {
     /** 关于页 */
     @Serializable
     data object About : Route()
+
+    /** 固定收支模板列表页 */
+    @Serializable
+    data object TemplateList : Route()
+
+    /** 固定收支模板编辑页（新建/编辑），templateId=null 为新建 */
+    @Serializable
+    data class TemplateEdit(
+        val templateId: Long? = null
+    ) : Route()
 }

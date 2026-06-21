@@ -354,6 +354,10 @@ interface TransactionDao {
     /** 获取总记录数 */
     @Query("SELECT COUNT(*) FROM `transaction`")
     suspend fun getTransactionCount(): Int
+
+    /** 检查指定模板在指定日期是否已有记录（防重复） */
+    @Query("SELECT COUNT(*) FROM `transaction` WHERE recurring_template_id = :templateId AND date BETWEEN :dayStart AND :dayEnd")
+    suspend fun countByTemplateAndDate(templateId: Long, dayStart: Long, dayEnd: Long): Int
 }
 
 /**

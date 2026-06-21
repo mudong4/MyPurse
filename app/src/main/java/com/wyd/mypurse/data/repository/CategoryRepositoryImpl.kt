@@ -47,11 +47,18 @@ class CategoryRepositoryImpl @Inject constructor(
         name: String,
         parentId: Long?,
         isDefault: Boolean,
-        flowSign: Int
+        flowSign: Int,
+        color: Long
     ): Long {
         val maxOrder = categoryDefDao.getMaxSortOrder(parentId)
-        val defaultColor = if (flowSign >= 0) CategoryDefaults.incomeDefaultColor
-                          else CategoryDefaults.expenseDefaultColor
+        val defaultColor = when {
+            color != 0L -> color                                 // 明确传入的颜色
+            isDefault -> CategoryDefaults.expenseDefaultColor    // 内置分类（一般不会走到这）
+            else -> {                                            // 自定义分类：轮转色
+                val count = categoryDefDao.getCustomCategoryCount(flowSign)
+                CategoryDefaults.rotationColors[count % CategoryDefaults.rotationColors.size]
+            }
+        }
         val entity = CategoryDefEntity(
             name = name,
             parentId = parentId,
@@ -71,6 +78,11 @@ class CategoryRepositoryImpl @Inject constructor(
     override suspend fun updateCategory(id: Long, name: String) {
         val existing = categoryDefDao.getCategoryById(id) ?: return
         categoryDefDao.updateCategory(existing.copy(name = name))
+    }
+
+    override suspend fun updateCategoryColor(id: Long, color: Long) {
+        val existing = categoryDefDao.getCategoryById(id) ?: return
+        categoryDefDao.updateCategory(existing.copy(color = color))
     }
 
     override suspend fun updateSortOrder(id: Long, sortOrder: Int) {

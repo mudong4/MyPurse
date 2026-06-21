@@ -36,6 +36,8 @@ class DatabaseInitializer @Inject constructor(
                 cleanDuplicateCategories(allCategories)
                 // 回填内置分类的颜色（MIGRATION_4_5 仅加列，未补数据）
                 backfillCategoryColors(allCategories)
+                // 回填旧自定义分类的颜色（V1.0 创建的 color=0 分类）
+                backfillCustomCategoryColors(allCategories)
             } else {
                 seedDefaultCategories()
             }
@@ -97,6 +99,38 @@ class DatabaseInitializer @Inject constructor(
                     CategoryDefaults.expenseDefaultColor
                 categoryDefDao.updateCategory(category.copy(color = defaultColor))
             }
+        }
+    }
+
+    /**
+     * 回填旧自定义分类的颜色（V1.0 → V1.1 升级场景）。
+     *
+     * V1.0 创建的自定义分类 color=0，未设置颜色。这些分类在所有图表中
+     * 只能依赖 chartPalette 按列表索引轮转，同一分类在不同页面因排序不同
+     * 可能呈现不同颜色，体验不一致。
+     *
+     * 本方法按 flowSign 分组、按 id 稳定排序后，使用 8 色轮转表分配颜色，
+     * 确保同一分类在所有页面显示一致颜色。
+     */
+    private suspend fun backfillCustomCategoryColors(allCategories: List<CategoryDefEntity>) {
+        val rotationColors = CategoryDefaults.rotationColors
+        // 只处理 isDefault=false 且 color=0 的自定义分类
+        val customCategories = allCategories.filter { !it.isDefault && it.color == 0L }
+        if (customCategories.isEmpty()) return
+
+        // 按 flowSign 分组，每组按 id 稳定排序后轮转分配颜色
+        val expenseList = customCategories.filter { it.flowSign < 0 }.sortedBy { it.id }
+        val incomeList = customCategories.filter { it.flowSign >= 0 }.sortedBy { it.id }
+
+        for ((index, category) in expenseList.withIndex()) {
+            categoryDefDao.updateCategory(
+                category.copy(color = rotationColors[index % rotationColors.size])
+            )
+        }
+        for ((index, category) in incomeList.withIndex()) {
+            categoryDefDao.updateCategory(
+                category.copy(color = rotationColors[index % rotationColors.size])
+            )
         }
     }
 

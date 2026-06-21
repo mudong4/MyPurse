@@ -2,9 +2,11 @@ package com.wyd.mypurse.di
 
 import com.wyd.mypurse.data.repository.CategoryRepositoryImpl
 import com.wyd.mypurse.data.repository.FlowTypeRepositoryImpl
+import com.wyd.mypurse.data.repository.RecurringTemplateRepositoryImpl
 import com.wyd.mypurse.data.repository.TransactionRepositoryImpl
 import com.wyd.mypurse.domain.repository.CategoryRepository
 import com.wyd.mypurse.domain.repository.FlowTypeRepository
+import com.wyd.mypurse.domain.repository.RecurringTemplateRepository
 import com.wyd.mypurse.domain.repository.TransactionRepository
 import dagger.Binds
 import dagger.Module
@@ -30,4 +32,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindTransactionRepository(impl: TransactionRepositoryImpl): TransactionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindRecurringTemplateRepository(impl: RecurringTemplateRepositoryImpl): RecurringTemplateRepository
 }

@@ -294,7 +294,7 @@ fun TransactionListScreen(
                 val isRecurring = transaction.recurringTemplateId != null
                 Text(
                     if (isRecurring)
-                        "该记录由固定模板自动生成，删除后不会影响模板设置。\n\n确定删除？"
+                        "此记录由固定模板自动生成，删除后模板仍会在下次到期时生成新记录。确定删除？"
                     else
                         "确定删除这条记录？删除后无法恢复。"
                 )

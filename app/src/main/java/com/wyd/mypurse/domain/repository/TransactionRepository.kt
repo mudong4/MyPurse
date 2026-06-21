@@ -70,6 +70,7 @@ interface TransactionRepository {
 
     /**
      * 插入一条交易记录。
+     * @param recurringTemplateId 来源模板 ID，null 表示手动记录
      */
     suspend fun insertTransaction(
         flowType: String,
@@ -79,7 +80,8 @@ interface TransactionRepository {
         categoryL2: String?,
         amount: BigDecimal,
         note: String?,
-        date: Long
+        date: Long,
+        recurringTemplateId: Long? = null
     ): Long
 
     // ========== 流水列表 ==========
@@ -173,4 +175,9 @@ interface TransactionRepository {
 
     /** 获取总记录数 */
     suspend fun getTransactionCount(): Int
+
+    /**
+     * 检查指定模板在指定日期是否已有自动记账记录（防重复）。
+     */
+    suspend fun countByTemplateAndDate(templateId: Long, dayStart: Long, dayEnd: Long): Int
 }

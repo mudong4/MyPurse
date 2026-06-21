@@ -1,6 +1,7 @@
 package com.wyd.mypurse.ui.categorymanage
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
@@ -13,11 +14,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -55,6 +58,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
@@ -64,7 +69,9 @@ import androidx.compose.ui.zIndex
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.Category
+import com.wyd.mypurse.ui.components.ColorPickerSheet
 import com.wyd.mypurse.ui.components.EmptyStateView
+import com.wyd.mypurse.ui.theme.categoryColor
 import kotlin.math.roundToInt
 
 /**
@@ -236,8 +243,10 @@ fun CategoryManageScreen(
                             onToggleExpand = { viewModel.onToggleExpand(category.id) },
                             onEdit = { viewModel.onShowEditDialog(category) },
                             onDelete = { viewModel.onShowDeleteDialog(category) },
+                            onChangeColor = { viewModel.onShowColorPicker(category) },
                             onEditSub = { sub -> viewModel.onShowEditDialog(sub) },
                             onDeleteSub = { sub -> viewModel.onShowDeleteDialog(sub) },
+                            onChangeColorSub = { sub -> viewModel.onShowColorPicker(sub) },
                             onAddSub = { viewModel.onShowAddDialog(category.id) },
                             onToggleSelect = { viewModel.onToggleSelect(category.id) },
                             dragModifier = if (!uiState.isBatchMode) Modifier.pointerInput(category.id) {
@@ -315,6 +324,18 @@ fun CategoryManageScreen(
             onDeleteWithRecords = { viewModel.onBatchDeleteWithRecords() }
         )
     }
+
+    // V1.1 颜色选择器
+    uiState.colorPickerCategory?.let { category ->
+        ColorPickerSheet(
+            initialColor = categoryColor(category.color) ?: Color.Unspecified,
+            onColorSelected = { viewModel.onColorSelected(it) },
+            onDismiss = { viewModel.onDismissColorPicker() },
+            onRestoreDefault = if (category.isDefault) {
+                { viewModel.onRestoreDefaultColor() }
+            } else null
+        )
+    }
 }
 
 @Composable
@@ -328,8 +349,10 @@ private fun CategoryItem(
     onToggleExpand: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onChangeColor: () -> Unit = {},
     onEditSub: (Category) -> Unit = {},
     onDeleteSub: (Category) -> Unit = {},
+    onChangeColorSub: (Category) -> Unit = {},
     onAddSub: () -> Unit,
     onToggleSelect: () -> Unit = {},
     dragModifier: Modifier = Modifier
@@ -383,6 +406,18 @@ private fun CategoryItem(
                             modifier = Modifier.padding(end = 4.dp)
                         )
                     }
+                    // V1.1 颜色指示圆点
+                    val catColor = categoryColor(category.color)
+                    if (catColor != null) {
+                        Box(
+                            modifier = Modifier
+                                .padding(end = 8.dp)
+                                .size(12.dp)
+                                .clip(CircleShape)
+                                .background(catColor)
+                                .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                        )
+                    }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = if (!isBatchMode) Modifier else Modifier.clickable { onToggleExpand() }
@@ -402,6 +437,9 @@ private fun CategoryItem(
                 if (!isBatchMode) {
                     Row {
                         TextButton(onClick = onEdit) { Text("编辑") }
+                        TextButton(onClick = onChangeColor) {
+                            Text("颜色", style = MaterialTheme.typography.labelSmall)
+                        }
                         TextButton(
                             onClick = onDelete,
                             colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
@@ -434,14 +472,30 @@ private fun CategoryItem(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(
-                                text = sub.name,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.weight(1f)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                // V1.1 颜色指示圆点
+                                val subColor = categoryColor(sub.color)
+                                if (subColor != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(end = 8.dp)
+                                            .size(10.dp)
+                                            .clip(CircleShape)
+                                            .background(subColor)
+                                            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                    )
+                                }
+                                Text(
+                                    text = sub.name,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                             if (!isBatchMode) {
                                 Row {
                                     TextButton(onClick = { onEditSub(sub) }) { Text("编辑") }
+                                    TextButton(onClick = { onChangeColorSub(sub) }) {
+                                        Text("颜色", style = MaterialTheme.typography.labelSmall)
+                                    }
                                     TextButton(
                                         onClick = { onDeleteSub(sub) },
                                         colors = androidx.compose.material3.ButtonDefaults.textButtonColors(
@@ -471,6 +525,7 @@ private fun CategoryItem(
 
 /**
  * 新增/编辑分类弹窗。
+ * V1.1 新增颜色预览行：新建时提示将自动分配轮转色，编辑时可点击"颜色"按钮在外部修改。
  */
 @Composable
 private fun CategoryEditDialog(
@@ -494,6 +549,25 @@ private fun CategoryEditDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                // V1.1 颜色预览（仅新建时显示，编辑时用行内"颜色"按钮）
+                if (!isEdit) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.3f))
+                                .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "颜色将自动分配，创建后可修改",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
             }
         },
         confirmButton = {

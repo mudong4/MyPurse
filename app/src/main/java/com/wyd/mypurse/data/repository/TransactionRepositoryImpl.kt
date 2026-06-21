@@ -133,7 +133,8 @@ class TransactionRepositoryImpl @Inject constructor(
         categoryL2: String?,
         amount: BigDecimal,
         note: String?,
-        date: Long
+        date: Long,
+        recurringTemplateId: Long?
     ): Long {
         val entity = TransactionEntity(
             flowType = flowType,
@@ -145,7 +146,8 @@ class TransactionRepositoryImpl @Inject constructor(
             note = note,
             date = date,
             createTime = System.currentTimeMillis(),
-            ledgerId = "default"
+            ledgerId = "default",
+            recurringTemplateId = recurringTemplateId
         )
         return transactionDao.insertTransaction(entity)
     }
@@ -261,6 +263,10 @@ class TransactionRepositoryImpl @Inject constructor(
 
     override suspend fun getTransactionCount(): Int {
         return transactionDao.getTransactionCount()
+    }
+
+    override suspend fun countByTemplateAndDate(templateId: Long, dayStart: Long, dayEnd: Long): Int {
+        return transactionDao.countByTemplateAndDate(templateId, dayStart, dayEnd)
     }
 
     // ========== 时间工具 ==========

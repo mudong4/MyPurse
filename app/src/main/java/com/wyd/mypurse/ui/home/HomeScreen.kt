@@ -53,12 +53,12 @@ import com.wyd.mypurse.domain.model.MonthlyAmount
 import com.wyd.mypurse.ui.components.EmptyStateText
 import com.wyd.mypurse.ui.components.rememberDebounce
 import com.wyd.mypurse.ui.theme.AppBudgetBlue
-import com.wyd.mypurse.ui.theme.DefaultChartColors
 import com.wyd.mypurse.ui.theme.AppBudgetOrange
 import com.wyd.mypurse.ui.theme.AppBudgetOverRed
 import com.wyd.mypurse.ui.theme.AppExpenseRed
 import com.wyd.mypurse.ui.theme.AppIncomeGreen
 import com.wyd.mypurse.ui.theme.AppProgressTrack
+import com.wyd.mypurse.ui.theme.LocalChartColorScheme
 import com.wyd.mypurse.ui.theme.categoryColor
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -534,6 +534,7 @@ private fun TopCategoriesCard(
 ) {
     val totalExpense = categories.sumOf { it.total }
     val maxAmount = categories.maxOfOrNull { it.total } ?: BigDecimal.ONE
+    val chartPalette = LocalChartColorScheme.current.chartPalette
 
     Card(
         modifier = Modifier
@@ -580,7 +581,7 @@ private fun TopCategoriesCard(
                     ratio = ratio,
                     percent = percent,
                     color = categoryColor(category.color)
-                        ?: DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size]
+                        ?: chartPalette[index % chartPalette.size]
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }

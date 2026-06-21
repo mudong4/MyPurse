@@ -2,7 +2,9 @@ package com.wyd.mypurse.ui.categorymanage
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.compose.ui.graphics.Color
 import com.wyd.mypurse.data.local.database.DatabaseInitializer
+import com.wyd.mypurse.data.repository.CategoryDefaults
 import com.wyd.mypurse.domain.model.Category
 import com.wyd.mypurse.domain.repository.CategoryRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -162,6 +164,46 @@ class CategoryManageViewModel @Inject constructor(
         viewModelScope.launch {
             categoryRepository.restoreDefaultCategories()
             _event.emit(CategoryManageEvent.ShowToast("默认分类已恢复"))
+        }
+    }
+
+    // ========== V1.1 颜色选择器 ==========
+
+    /** 显示颜色选择器 */
+    fun onShowColorPicker(category: Category) {
+        _uiState.value = _uiState.value.copy(colorPickerCategory = category)
+    }
+
+    /** 关闭颜色选择器 */
+    fun onDismissColorPicker() {
+        _uiState.value = _uiState.value.copy(colorPickerCategory = null)
+    }
+
+    /** 确认颜色选择 */
+    fun onColorSelected(color: Color) {
+        val category = _uiState.value.colorPickerCategory ?: return
+        viewModelScope.launch {
+            val argb: Long = (
+                ((color.alpha * 255).toInt().toLong() shl 24) or
+                ((color.red * 255).toInt().toLong() shl 16) or
+                ((color.green * 255).toInt().toLong() shl 8) or
+                (color.blue * 255).toInt().toLong()
+            )
+            categoryRepository.updateCategoryColor(category.id, argb)
+            _uiState.value = _uiState.value.copy(colorPickerCategory = null)
+            _event.emit(CategoryManageEvent.ShowToast("「${category.name}」颜色已更新"))
+        }
+    }
+
+    /** 恢复内置分类的默认颜色 */
+    fun onRestoreDefaultColor() {
+        val category = _uiState.value.colorPickerCategory ?: return
+        if (!category.isDefault) return
+        val defaultColor = CategoryDefaults.getDefaultColor(category.name, category.flowSign) ?: return
+        viewModelScope.launch {
+            categoryRepository.updateCategoryColor(category.id, defaultColor)
+            _uiState.value = _uiState.value.copy(colorPickerCategory = null)
+            _event.emit(CategoryManageEvent.ShowToast("「${category.name}」已恢复默认颜色"))
         }
     }
 

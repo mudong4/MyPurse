@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Feedback
 import androidx.compose.material.icons.filled.FileOpen
@@ -47,6 +48,7 @@ import com.wyd.mypurse.ui.components.rememberDebounce
 fun SettingsScreen(
     onNavigateToCategoryManage: () -> Unit,
     onNavigateToBudget: () -> Unit,
+    onNavigateToTemplate: () -> Unit,
     onNavigateToAbout: () -> Unit,
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
@@ -228,6 +230,13 @@ fun SettingsScreen(
                 subtitle = "设置每月预算限额",
                 onClick = { debounce { onNavigateToBudget() } }
             )
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
+            SettingsItem(
+                icon = Icons.Filled.DateRange,
+                title = "固定收支模板",
+                subtitle = "自动记账周期设置",
+                onClick = { debounce { onNavigateToTemplate() } }
+            )
         }
 
         Spacer(modifier = Modifier.height(20.dp))
@@ -242,6 +251,7 @@ fun SettingsScreen(
                 enabled = true,
                 onClick = { viewModel.showPresetSelector() }
             )
+            
         }
 
         Spacer(modifier = Modifier.height(20.dp))

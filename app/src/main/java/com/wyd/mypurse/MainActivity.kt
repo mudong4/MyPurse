@@ -16,6 +16,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
+import com.wyd.mypurse.data.local.RecurringScheduler
 import com.wyd.mypurse.data.local.UserPreferencesRepository
 import com.wyd.mypurse.ui.navigation.MyPurseNavHost
 import com.wyd.mypurse.ui.theme.MyPurseTheme
@@ -36,6 +37,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var userPreferencesRepository: UserPreferencesRepository
 
+    @Inject
+    lateinit var recurringScheduler: RecurringScheduler
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // 冷启动 starting window 使用 Splash 主题（浅绿色背景，无图标闪现），
         // Activity 创建后立即切回主主题，由 Compose 层接管渲染。
@@ -48,7 +52,7 @@ class MainActivity : ComponentActivity() {
             val preset = findPresetByName(presetName)
 
             MyPurseTheme(preset = preset) {
-                AppEntry()
+                AppEntry(recurringScheduler)
             }
         }
     }
@@ -58,8 +62,13 @@ class MainActivity : ComponentActivity() {
  * 应用入口：先显示启动图，短暂延迟后切换到主界面。
  */
 @Composable
-fun AppEntry() {
+fun AppEntry(scheduler: RecurringScheduler) {
     var showSplash by remember { mutableStateOf(true) }
+
+    // V1.1 冷启动自动记账
+    LaunchedEffect(Unit) {
+        scheduler.execute()
+    }
 
     if (showSplash) {
         // 全屏启动图：直接显示用户提供的加载界面.png

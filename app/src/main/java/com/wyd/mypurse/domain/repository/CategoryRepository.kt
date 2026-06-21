@@ -32,14 +32,17 @@ interface CategoryRepository {
     /** 根据 ID 获取分类 */
     suspend fun getCategoryById(id: Long): Category?
 
-    /** 新增分类，返回新 ID */
-    suspend fun addCategory(name: String, parentId: Long?, isDefault: Boolean, flowSign: Int = -1): Long
+    /** 新增分类，返回新 ID。color=0 时自动取轮转色 */
+    suspend fun addCategory(name: String, parentId: Long?, isDefault: Boolean, flowSign: Int = -1, color: Long = 0): Long
 
     /** 批量新增分类（用于恢复默认） */
     suspend fun addCategories(categories: List<Category>)
 
     /** 更新分类名称 */
     suspend fun updateCategory(id: Long, name: String)
+
+    /** V1.1 更新分类颜色 */
+    suspend fun updateCategoryColor(id: Long, color: Long)
 
     /** 更新分类排序 */
     suspend fun updateSortOrder(id: Long, sortOrder: Int)

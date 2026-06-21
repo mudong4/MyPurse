@@ -89,4 +89,8 @@ interface CategoryDefDao {
     /** 清空全部分类记录 */
     @Query("DELETE FROM category_def")
     suspend fun deleteAllCategories()
+
+    /** V1.1 统计指定 flowSign 的自定义分类（非默认）数量，用于颜色轮转 */
+    @Query("SELECT COUNT(*) FROM category_def WHERE is_default = 0 AND flow_sign = :flowSign")
+    suspend fun getCustomCategoryCount(flowSign: Int): Int
 }

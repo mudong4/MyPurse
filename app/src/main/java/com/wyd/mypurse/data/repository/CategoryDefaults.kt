@@ -16,6 +16,21 @@ object CategoryDefaults {
     /** 收入侧默认颜色（未设置 color 时的 fallback）：浅绿 */
     const val incomeDefaultColor: Long = 0xFFC8E6C9   // 浅绿
 
+    /**
+     * V1.1 新建分类颜色轮转表（8 色）。
+     * 新建自定义分类时按已有自定义分类数取模轮转，避免所有新分类共用同一 fallback 色。
+     */
+    val rotationColors: List<Long> = listOf(
+        0xFFFF7043, // 橙
+        0xFF42A5F5, // 蓝
+        0xFFAB47BC, // 紫
+        0xFF43A047, // 绿
+        0xFFEF5350, // 红
+        0xFF26A69A, // 青
+        0xFFEC407A, // 粉
+        0xFF5C6BC0, // 靛蓝
+    )
+
     /** 支出侧内置一级分类（flowSign = -1） */
     val expenseCategories: List<Category> = listOf(
         Category(id = 0, name = "餐饮", parentId = null, isDefault = true, sortOrder = 1, flowSign = -1, color = 0xFFFF7043),
@@ -79,4 +94,13 @@ object CategoryDefaults {
      */
     val subCategories: Map<String, List<String>>
         get() = expenseSubCategories + incomeSubCategories
+
+    /**
+     * V1.1 根据名称和 flowSign 查找内置分类的默认颜色。
+     * @return 默认 ARGB 色值，非内置分类返回 null
+     */
+    fun getDefaultColor(name: String, flowSign: Int): Long? {
+        val list = if (flowSign == -1) expenseCategories else incomeCategories
+        return list.find { it.name == name }?.color
+    }
 }

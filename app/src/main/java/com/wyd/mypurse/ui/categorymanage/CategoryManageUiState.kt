@@ -28,7 +28,9 @@ data class CategoryManageUiState(
     /** 批量模式下选中的一级分类 ID 集合 */
     val selectedCategoryIds: Set<Long> = emptySet(),
     /** 批量删除确认弹窗 */
-    val batchDeleteDialog: BatchDeleteDialogState? = null
+    val batchDeleteDialog: BatchDeleteDialogState? = null,
+    /** V1.1 颜色选择器状态：当前正在修改颜色的分类，null 表示未打开 */
+    val colorPickerCategory: Category? = null
 ) {
     /** 当前 Tab 下的一级分类列表 */
     val currentTabCategories: List<Category>

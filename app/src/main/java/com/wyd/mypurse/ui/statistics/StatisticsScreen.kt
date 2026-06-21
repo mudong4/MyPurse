@@ -97,7 +97,7 @@ import com.wyd.mypurse.ui.theme.AppSpacingLg
 import com.wyd.mypurse.ui.theme.AppSpacingMd
 import com.wyd.mypurse.ui.theme.AppSpacingSm
 import com.wyd.mypurse.ui.theme.AppSurfaceBg
-import com.wyd.mypurse.ui.theme.DefaultChartColors
+import com.wyd.mypurse.ui.theme.LocalChartColorScheme
 import com.wyd.mypurse.ui.theme.categoryColor
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
@@ -229,6 +229,9 @@ private fun CategoryPage(
 
     Spacer(modifier = Modifier.height(12.dp))
 
+    // V1.1 读取图表配色（主题预设）
+    val chartColors = LocalChartColorScheme.current
+
     // 分类图卡片
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -279,7 +282,7 @@ private fun CategoryPage(
                     Text(
                         text = chartMode.iconLabel,
                         fontSize = 18.sp,
-                        color = DefaultChartColors.chartPrimary
+                        color = chartColors.chartPrimary
                     )
                 }
             }
@@ -374,7 +377,11 @@ private fun DonutChart(
     isIncome: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val density = LocalDensity.current
+    val chartPalette = LocalChartColorScheme.current.chartPalette
+    var selectedIndex by remember { mutableStateOf(-1) }
+
+    // 被选中的分类
+    val selectedItem = items.getOrNull(selectedIndex)
 
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.fillMaxSize()) {
@@ -386,37 +393,68 @@ private fun DonutChart(
 
             items.forEachIndexed { index, item ->
                 val sweep = if (total > BigDecimal.ZERO) {
-                    item.total.divide(total, 4, RoundingMode.HALF_UP)
-                        .toFloat() * 360f
+                    item.total.divide(total, 4, RoundingMode.HALF_UP).toFloat() * 360f
                 } else 0f
-
+                val isSelected = index == selectedIndex
                 drawArc(
                     color = categoryColor(item.color)
-                        ?: DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size],
+                        ?: chartPalette[index % chartPalette.size],
                     startAngle = startAngle,
                     sweepAngle = sweep,
                     useCenter = false,
                     topLeft = Offset(center.x - radius, center.y - radius),
                     size = Size(radius * 2, radius * 2),
-                    style = Stroke(width = strokeWidth)
+                    style = Stroke(
+                        width = if (isSelected) strokeWidth * 1.15f else strokeWidth
+                    ),
+                    alpha = if (selectedIndex >= 0 && !isSelected) 0.5f else 1f
                 )
                 startAngle += sweep
             }
         }
 
-        // 中间文字：显示总金额
+        // 中间文字
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "¥${df.format(total)}",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = "总${if (isIncome) "收入" else "支出"}",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (selectedItem != null) {
+                // 点击选中状态：显示分类名 + 金额 + 占比
+                val pct = if (total > BigDecimal.ZERO) {
+                    selectedItem.total.multiply(BigDecimal("100"))
+                        .divide(total, 1, RoundingMode.HALF_UP)
+                } else BigDecimal.ZERO
+                Text(
+                    text = selectedItem.categoryL1,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    color = categoryColor(selectedItem.color)
+                        ?: chartPalette[selectedIndex % chartPalette.size]
+                )
+                Text(
+                    text = "¥${df.format(selectedItem.total)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "${dfPct.format(pct)}%",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                Text(
+                    text = "¥${df.format(total)}",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "总${if (isIncome) "收入" else "支出"}",
+                    fontSize = 11.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 
@@ -427,9 +465,11 @@ private fun DonutChart(
             val pct = if (total > BigDecimal.ZERO) {
                 item.total.multiply(BigDecimal("100")).divide(total, 1, RoundingMode.HALF_UP)
             } else BigDecimal.ZERO
+            val isSelected = index == selectedIndex
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .clickable { selectedIndex = if (isSelected) -1 else index }
                     .padding(vertical = 3.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -439,8 +479,11 @@ private fun DonutChart(
                         .clip(RoundedCornerShape(2.dp))
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        drawRect(color = categoryColor(item.color)
-                            ?: DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size])
+                        drawRect(
+                            color = categoryColor(item.color)
+                                ?: chartPalette[index % chartPalette.size],
+                            alpha = if (selectedIndex >= 0 && !isSelected) 0.5f else 1f
+                        )
                     }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -450,6 +493,7 @@ private fun DonutChart(
                     modifier = Modifier.weight(1f).padding(end = 4.dp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
@@ -461,7 +505,7 @@ private fun DonutChart(
                 Text(
                     text = "${dfPct.format(pct)}%",
                     fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                     color = MaterialTheme.colorScheme.onSurface,
                     modifier = Modifier.width(36.dp),
                     textAlign = TextAlign.End
@@ -482,6 +526,7 @@ private fun CompositionBarList(
     isSubLoading: Boolean,
     onToggleSubCategory: (Long) -> Unit
 ) {
+    val chartPalette = LocalChartColorScheme.current.chartPalette
     items.forEachIndexed { index, item ->
         val pct = if (total > BigDecimal.ZERO) {
             item.total.divide(total, 4, RoundingMode.HALF_UP).toFloat().coerceIn(0f, 1f)
@@ -490,7 +535,7 @@ private fun CompositionBarList(
             item.total.multiply(BigDecimal("100")).divide(total, 1, RoundingMode.HALF_UP)
         } else BigDecimal.ZERO
         val color = categoryColor(item.color)
-            ?: DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size]
+            ?: chartPalette[index % chartPalette.size]
 
         CompositionBar(
             name = item.categoryL1,
@@ -663,6 +708,8 @@ private fun TrendPage(
     labelStep: Int,
     onToggleChartMode: () -> Unit
 ) {
+    // V1.1 读取图表配色
+    val chartColors = LocalChartColorScheme.current
     // 选中数据点状态
     var selectedIndex by remember { mutableStateOf<Int?>(null) }
 
@@ -687,7 +734,7 @@ private fun TrendPage(
                     Text(
                         text = chartMode.iconLabel,
                         fontSize = 18.sp,
-                        color = DefaultChartColors.chartPrimary
+                        color = chartColors.chartPrimary
                     )
                 }
             }
@@ -716,7 +763,7 @@ private fun TrendPage(
                         textAlign = TextAlign.Center,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
-                        color = DefaultChartColors.chartAccent
+                        color = chartColors.chartAccent
                     )
                     Spacer(modifier = Modifier.height(6.dp))
                 }
@@ -777,6 +824,8 @@ private fun BarChart(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
+    // V1.1 读取图表配色
+    val chartColors = LocalChartColorScheme.current
 
     // 动画：每个柱子的高度比例
     val animatedFractions = trend.mapIndexed { index, point ->
@@ -851,7 +900,7 @@ private fun BarChart(
             val barH = drawH * hFrac
             val y = topPad + drawH - barH
 
-            val color = if (index == selectedIndex) DefaultChartColors.chartAccent else DefaultChartColors.chartPrimary
+            val color = if (index == selectedIndex) chartColors.chartAccent else chartColors.chartPrimary
             drawRect(color = color, topLeft = Offset(x, y), size = Size(barW, barH))
         }
 
@@ -859,7 +908,7 @@ private fun BarChart(
         if (selectedIndex != null && selectedIndex < trend.size) {
             val lineX = leftPad + barSpacing * (selectedIndex + 1)
             drawLine(
-                color = DefaultChartColors.chartAccent.copy(alpha = 0.5f),
+                color = chartColors.chartAccent.copy(alpha = 0.5f),
                 start = Offset(lineX, topPad),
                 end = Offset(lineX, topPad + drawH),
                 strokeWidth = 1.5.dp.toPx()
@@ -900,6 +949,8 @@ private fun LineChart(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
+    // V1.1 读取图表配色
+    val chartColors = LocalChartColorScheme.current
 
     // 动画：每个数据点的高度比例
     val animatedFractions = trend.mapIndexed { index, point ->
@@ -978,7 +1029,7 @@ private fun LineChart(
         }
         fillPath.lineTo(leftPad + barSpacing * trend.size, topPad + drawH)
         fillPath.close()
-        drawPath(path = fillPath, color = DefaultChartColors.chartPrimary.copy(alpha = 0.1f))
+        drawPath(path = fillPath, color = chartColors.chartPrimary.copy(alpha = 0.1f))
 
         // 折线
         val linePath = Path()
@@ -988,7 +1039,7 @@ private fun LineChart(
             val y = topPad + drawH * (1 - hFrac)
             if (index == 0) linePath.moveTo(x, y) else linePath.lineTo(x, y)
         }
-        drawPath(path = linePath, color = DefaultChartColors.chartPrimary, style = Stroke(width = 2.5.dp.toPx()))
+        drawPath(path = linePath, color = chartColors.chartPrimary, style = Stroke(width = 2.5.dp.toPx()))
 
         // 数据点
         trend.forEachIndexed { index, _ ->
@@ -997,7 +1048,7 @@ private fun LineChart(
             val y = topPad + drawH * (1 - hFrac)
             val isSelected = index == selectedIndex
             drawCircle(
-                color = if (isSelected) DefaultChartColors.chartAccent else DefaultChartColors.chartPrimary,
+                color = if (isSelected) chartColors.chartAccent else chartColors.chartPrimary,
                 radius = (if (isSelected) 6 else 4).dp.toPx(),
                 center = Offset(x, y)
             )
@@ -1012,7 +1063,7 @@ private fun LineChart(
         if (selectedIndex != null && selectedIndex < trend.size) {
             val lineX = leftPad + barSpacing * (selectedIndex + 1)
             drawLine(
-                color = DefaultChartColors.chartAccent.copy(alpha = 0.4f),
+                color = chartColors.chartAccent.copy(alpha = 0.4f),
                 start = Offset(lineX, topPad),
                 end = Offset(lineX, topPad + drawH),
                 strokeWidth = 1.5.dp.toPx()
@@ -1046,6 +1097,9 @@ private fun LineChart(
 private fun TrendSummary(trend: List<TrendPoint>) {
     if (trend.isEmpty()) return
 
+    // V1.1 读取图表配色
+    val chartColors = LocalChartColorScheme.current
+
     val avg = trend.map { it.total }.reduce { a, b -> a.add(b) }
         .divide(BigDecimal(trend.size.toLong()), 2, RoundingMode.HALF_UP)
     val maxPoint = trend.maxBy { it.total }
@@ -1078,7 +1132,7 @@ private fun TrendSummary(trend: List<TrendPoint>) {
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceEvenly
     ) {
-        SummaryItem("均值", "¥${df.format(avg)}", DefaultChartColors.chartPrimary)
+        SummaryItem("均值", "¥${df.format(avg)}", chartColors.chartPrimary)
         SummaryItem("最高", "¥${df.format(maxPoint.total)}", AppExpenseRed)
         SummaryItem("最低", "¥${df.format(minPoint.total)}", AppIncomeGreen)
     }
@@ -1112,6 +1166,9 @@ private fun BottomToolbar(
     onJumpToTimestamp: (Long) -> Unit,
     onTogglePageMode: () -> Unit
 ) {
+    // V1.1 读取图表配色
+    val chartColors = LocalChartColorScheme.current
+
     var showGranularityMenu by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
 
@@ -1153,7 +1210,7 @@ private fun BottomToolbar(
                                 Text(
                                     g.label,
                                     fontWeight = if (g == granularity) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (g == granularity) DefaultChartColors.chartPrimary
+                                    color = if (g == granularity) chartColors.chartPrimary
                                     else MaterialTheme.colorScheme.onSurface
                                 )
                             },
@@ -1187,7 +1244,7 @@ private fun BottomToolbar(
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
-                    color = DefaultChartColors.chartPrimary,
+                    color = chartColors.chartPrimary,
                     modifier = Modifier
                         .clickable { showTimePicker = true }
                         .padding(horizontal = 6.dp, vertical = 4.dp)
@@ -1213,7 +1270,7 @@ private fun BottomToolbar(
                 text = targetLabel,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
-                color = DefaultChartColors.chartPrimary,
+                color = chartColors.chartPrimary,
                 modifier = Modifier
                     .clickable(onClick = onTogglePageMode)
                     .padding(horizontal = 8.dp, vertical = 6.dp)
@@ -1249,6 +1306,9 @@ private fun TimePickerDialog(
     onDismiss: () -> Unit,
     onSelect: (Long) -> Unit
 ) {
+    // V1.1 读取图表配色
+    val chartColors = LocalChartColorScheme.current
+
     val cal = remember(currentTimestamp) {
         Calendar.getInstance().apply { timeInMillis = currentTimestamp }
     }
@@ -1265,11 +1325,11 @@ private fun TimePickerDialog(
         Granularity.YEAR -> YearWheelSheet(
             years = years,
             selectedYear = curYear,
-            highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
-            selectedTextColor = DefaultChartColors.chartPrimary,
+            highlightColor = chartColors.chartPrimary.copy(alpha = 0.1f),
+            selectedTextColor = chartColors.chartPrimary,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
             backgroundColor = SheetBg,
-            confirmColor = DefaultChartColors.chartPrimary,
+            confirmColor = chartColors.chartPrimary,
             onConfirm = { onSelect(makeTs(it, 1, 1)) },
             onDismiss = onDismiss
         )
@@ -1278,13 +1338,13 @@ private fun TimePickerDialog(
             monthList = (1..12).toList(),
             currentYear = curYear,
             currentMonth = curMonth,
-            title = { Text("${curYear}年${curMonth}月", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DefaultChartColors.chartPrimary, modifier = Modifier.padding(top = 16.dp)) },
-            titleColor = DefaultChartColors.chartPrimary,
-            highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
-            selectedTextColor = DefaultChartColors.chartPrimary,
+            title = { Text("${curYear}年${curMonth}月", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = chartColors.chartPrimary, modifier = Modifier.padding(top = 16.dp)) },
+            titleColor = chartColors.chartPrimary,
+            highlightColor = chartColors.chartPrimary.copy(alpha = 0.1f),
+            selectedTextColor = chartColors.chartPrimary,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
             backgroundColor = SheetBg,
-            confirmColor = DefaultChartColors.chartPrimary,
+            confirmColor = chartColors.chartPrimary,
             onConfirm = { year, month ->
                 onSelect(makeTs(year, month, 1))
             },
@@ -1349,6 +1409,9 @@ private fun CalendarSheet(
     onSelected: (Int, Int, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
+    // V1.1 读取图表配色
+    val chartColors = LocalChartColorScheme.current
+
     var selectedYear by remember { mutableStateOf(currentYear) }
     var selectedMonth by remember { mutableStateOf(currentMonth) }
     var selectedDay by remember { mutableStateOf(currentDay) }
@@ -1378,11 +1441,11 @@ private fun CalendarSheet(
             monthList = (1..12).toList(),
             currentYear = selectedYear,
             currentMonth = selectedMonth,
-            highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
-            selectedTextColor = DefaultChartColors.chartPrimary,
+            highlightColor = chartColors.chartPrimary.copy(alpha = 0.1f),
+            selectedTextColor = chartColors.chartPrimary,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
             backgroundColor = SheetBg,
-            confirmColor = DefaultChartColors.chartPrimary,
+            confirmColor = chartColors.chartPrimary,
             onConfirm = { y, m ->
                 selectedYear = y
                 selectedMonth = m
@@ -1419,7 +1482,7 @@ private fun CalendarSheet(
                 }
                 Text(
                     "${selectedYear}年${selectedMonth}月",
-                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = DefaultChartColors.chartPrimary,
+                    fontSize = 16.sp, fontWeight = FontWeight.Bold, color = chartColors.chartPrimary,
                     modifier = Modifier.clickable { showYearMonthPicker = true }.padding(horizontal = 4.dp)
                 )
                 IconButton(onClick = {
@@ -1474,7 +1537,7 @@ private fun CalendarSheet(
                                     .weight(1f)
                                     .padding(2.dp)
                                     .clip(RoundedCornerShape(16.dp))
-                                    .background(if (highlight) DefaultChartColors.chartPrimary else Color.Transparent)
+                                    .background(if (highlight) chartColors.chartPrimary else Color.Transparent)
                                     .clickable {
                                         selectedDay = day
                                         if (weekMode) {
@@ -1522,6 +1585,9 @@ private fun QuarterSheet(
     onSelected: (Int, Int) -> Unit,
     onDismiss: () -> Unit
 ) {
+    // V1.1 读取图表配色
+    val chartColors = LocalChartColorScheme.current
+
     var selectedYear by remember { mutableStateOf(currentYear) }
     var showYearPicker by remember { mutableStateOf(false) }
     val currentQuarter = (currentMonth - 1) / 3 + 1
@@ -1530,11 +1596,11 @@ private fun QuarterSheet(
         YearWheelSheet(
             years = years,
             selectedYear = selectedYear,
-            highlightColor = DefaultChartColors.chartPrimary.copy(alpha = 0.1f),
-            selectedTextColor = DefaultChartColors.chartPrimary,
+            highlightColor = chartColors.chartPrimary.copy(alpha = 0.1f),
+            selectedTextColor = chartColors.chartPrimary,
             unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
             backgroundColor = SheetBg,
-            confirmColor = DefaultChartColors.chartPrimary,
+            confirmColor = chartColors.chartPrimary,
             onConfirm = { selectedYear = it; showYearPicker = false },
             onDismiss = { showYearPicker = false }
         )
@@ -1556,7 +1622,7 @@ private fun QuarterSheet(
                 "${selectedYear}年",
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
-                color = DefaultChartColors.chartPrimary,
+                color = chartColors.chartPrimary,
                 modifier = Modifier
                     .clickable { showYearPicker = true }
                     .padding(horizontal = 12.dp, vertical = 12.dp)
@@ -1572,7 +1638,7 @@ private fun QuarterSheet(
                             .weight(1f)
                             .padding(6.dp)
                             .clip(RoundedCornerShape(AppCornerMedium))
-                            .background(if (isSelected) DefaultChartColors.chartPrimary else MaterialTheme.colorScheme.surfaceVariant)
+                            .background(if (isSelected) chartColors.chartPrimary else MaterialTheme.colorScheme.surfaceVariant)
                             .clickable { onSelected(selectedYear, q) }
                             .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center
@@ -1595,12 +1661,3 @@ private fun QuarterSheet(
         }
     }
 }
-
-
-
-
-
-
-
-
-

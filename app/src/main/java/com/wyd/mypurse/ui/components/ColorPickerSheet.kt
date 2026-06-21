@@ -55,13 +55,15 @@ import androidx.compose.ui.unit.dp
  * @param initialColor 初始颜色（用于预览和预设选中标记）
  * @param onColorSelected 用户确认后的回调，传递选中的 Color
  * @param onDismiss 关闭回调
+ * @param onRestoreDefault 可选："恢复默认颜色"回调（仅 11d 内置分类显示）
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ColorPickerSheet(
     initialColor: Color,
     onColorSelected: (Color) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onRestoreDefault: (() -> Unit)? = null
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var showCustom by rememberSaveable { mutableStateOf(false) }
@@ -122,18 +124,29 @@ fun ColorPickerSheet(
             // 底部按钮
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedButton(onClick = onDismiss) {
-                    Text("取消")
+                // 左侧：恢复默认（仅内置分类显示）
+                if (onRestoreDefault != null) {
+                    OutlinedButton(onClick = onRestoreDefault) {
+                        Text("恢复默认颜色")
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(1.dp))
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Button(onClick = {
-                    val color = parseHexColor(selectedColor) ?: initialColor
-                    onColorSelected(color)
-                    onDismiss()
-                }) {
-                    Text("确认")
+                Row(horizontalArrangement = Arrangement.End) {
+                    OutlinedButton(onClick = onDismiss) {
+                        Text("取消")
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Button(onClick = {
+                        val color = parseHexColor(selectedColor) ?: initialColor
+                        onColorSelected(color)
+                        onDismiss()
+                    }) {
+                        Text("确认")
+                    }
                 }
             }
         }

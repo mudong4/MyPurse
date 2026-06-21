@@ -17,7 +17,6 @@ import javax.inject.Singleton
  *
  * 键清单：
  * - [THEME_PRESET_NAME]：当前主题预设名，默认 "默认紫"
- * - [CUSTOM_CHART_PALETTE]：用户自定义图表配色 JSON 数组字符串，空表示跟随主题预设
  */
 @Singleton
 class UserPreferencesRepository @Inject constructor(
@@ -29,9 +28,6 @@ class UserPreferencesRepository @Inject constructor(
 
         /** 主题预设名（String） */
         val THEME_PRESET_NAME = stringPreferencesKey("theme_preset_name")
-
-        /** 自定义图表配色 JSON（String，空=跟随主题预设） */
-        val CUSTOM_CHART_PALETTE = stringPreferencesKey("custom_chart_palette")
 
         /** 默认预设名 */
         const val DEFAULT_PRESET_NAME = "默认紫"
@@ -47,11 +43,6 @@ class UserPreferencesRepository @Inject constructor(
         prefs[THEME_PRESET_NAME] ?: DEFAULT_PRESET_NAME
     }
 
-    /** 自定义图表配色 JSON Flow（空字符串表示跟随主题） */
-    val customChartPalette: Flow<String> = dataStore.data.map { prefs ->
-        prefs[CUSTOM_CHART_PALETTE] ?: ""
-    }
-
     /** 设置主题预设名 */
     suspend fun setThemePresetName(name: String) {
         dataStore.edit { prefs ->
@@ -59,14 +50,4 @@ class UserPreferencesRepository @Inject constructor(
         }
     }
 
-    /** 设置自定义图表配色（JSON 数组字符串，传空字符串清除自定义） */
-    suspend fun setCustomChartPalette(jsonPalette: String) {
-        dataStore.edit { prefs ->
-            if (jsonPalette.isEmpty()) {
-                prefs.remove(CUSTOM_CHART_PALETTE)
-            } else {
-                prefs[CUSTOM_CHART_PALETTE] = jsonPalette
-            }
-        }
-    }
 }

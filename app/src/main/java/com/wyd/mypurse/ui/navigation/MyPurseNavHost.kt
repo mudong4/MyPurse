@@ -30,6 +30,8 @@ import com.wyd.mypurse.ui.categorymanage.CategoryManageScreen
 import com.wyd.mypurse.ui.home.HomeScreen
 import com.wyd.mypurse.ui.settings.SettingsScreen
 import com.wyd.mypurse.ui.statistics.StatisticsScreen
+import com.wyd.mypurse.ui.template.TemplateEditScreen
+import com.wyd.mypurse.ui.template.TemplateListScreen
 import com.wyd.mypurse.ui.transactionlist.TransactionListScreen
 
 /**
@@ -66,6 +68,8 @@ fun MyPurseNavHost(
         Route.Budget::class,
         Route.About::class,
         Route.Statistics::class,
+        Route.TemplateList::class,
+        Route.TemplateEdit::class,
     )
 
     val showBottomBar = hideBottomBarRoutes.none { routeClass ->
@@ -150,6 +154,9 @@ fun MyPurseNavHost(
                     onNavigateToBudget = {
                         navController.navigate(Route.Budget())
                     },
+                    onNavigateToTemplate = {
+                        navController.navigate(Route.TemplateList)
+                    },
                     onNavigateToAbout = {
                         navController.navigate(Route.About)
                     }
@@ -206,6 +213,29 @@ fun MyPurseNavHost(
             composable<Route.About> {
                 AboutScreen(
                     onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // 固定收支模板列表页
+            composable<Route.TemplateList> {
+                TemplateListScreen(
+                    onBack = { navController.popBackStack() },
+                    onNavigateToCreate = {
+                        navController.navigate(Route.TemplateEdit())
+                    },
+                    onNavigateToEdit = { id ->
+                        navController.navigate(Route.TemplateEdit(templateId = id))
+                    }
+                )
+            }
+
+            // 固定收支模板编辑页
+            composable<Route.TemplateEdit> { backStackEntry ->
+                val route = backStackEntry.toRoute<Route.TemplateEdit>()
+                TemplateEditScreen(
+                    templateId = route.templateId,
+                    onBack = { navController.popBackStack() },
+                    onSaved = { navController.popBackStack() }
                 )
             }
         }
