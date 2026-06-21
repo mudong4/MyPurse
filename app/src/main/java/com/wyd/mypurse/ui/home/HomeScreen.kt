@@ -53,6 +53,7 @@ import com.wyd.mypurse.domain.model.MonthlyAmount
 import com.wyd.mypurse.ui.components.EmptyStateText
 import com.wyd.mypurse.ui.components.rememberDebounce
 import com.wyd.mypurse.ui.theme.AppBudgetBlue
+import com.wyd.mypurse.ui.theme.DefaultChartColors
 import com.wyd.mypurse.ui.theme.AppBudgetOrange
 import com.wyd.mypurse.ui.theme.AppBudgetOverRed
 import com.wyd.mypurse.ui.theme.AppExpenseRed
@@ -561,7 +562,7 @@ private fun TopCategoriesCard(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            categories.forEach { category ->
+            categories.forEachIndexed { index, category ->
                 val ratio = if (maxAmount > BigDecimal.ZERO) {
                     category.total.divide(maxAmount, 4, RoundingMode.HALF_UP)
                         .toFloat()
@@ -579,6 +580,7 @@ private fun TopCategoriesCard(
                     ratio = ratio,
                     percent = percent,
                     color = categoryColor(category.color)
+                        ?: DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size]
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -592,9 +594,8 @@ private fun CategoryRankRow(
     amount: BigDecimal,
     ratio: Float,
     percent: BigDecimal,
-    color: Color? = null
+    color: Color
 ) {
-    val barColor = color ?: AppBudgetBlue
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -618,7 +619,7 @@ private fun CategoryRankRow(
                 .fillMaxWidth()
                 .height(6.dp)
                 .clip(RoundedCornerShape(3.dp)),
-            color = barColor,
+            color = color,
             trackColor = AppProgressTrack,
         )
     }
