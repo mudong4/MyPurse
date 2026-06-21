@@ -24,7 +24,7 @@ class DatabaseInitializer @Inject constructor(
      * 执行首次初始化。如果数据库已有数据则跳过。
      * 调用方应在协程中调用此方法。
      * 使用 Mutex 防止并发重复插入（如 ViewModel init 和 LaunchedEffect 同时触发）。
-     * 同时清理历史重复数据（由旧版本 race condition 导致的 name+parentId 重复项）。
+     * 同时清理历史重复数据，并回填 V1.0.1 新增的 color 字段（老用户升级场景）。
      */
     suspend fun initializeIfNeeded() {
         if (initialized) return
@@ -34,6 +34,8 @@ class DatabaseInitializer @Inject constructor(
             if (allCategories.isNotEmpty()) {
                 // 清理历史重复数据
                 cleanDuplicateCategories(allCategories)
+                // 回填内置分类的颜色（MIGRATION_4_5 仅加列，未补数据）
+                backfillCategoryColors(allCategories)
             } else {
                 seedDefaultCategories()
             }
@@ -59,6 +61,42 @@ class DatabaseInitializer @Inject constructor(
 
         for (id in toDelete) {
             categoryDefDao.deleteCategory(id)
+        }
+    }
+
+    /**
+     * 回填内置分类的颜色（V1.0.1 升级场景）。
+     * MIGRATION_4_5 为 category_def 添加 color 列时 DEFAULT 0，未对已有内置分类
+     * 填充 CategoryDefaults 中定义的默认颜色。此方法匹配name + flowSign 查找对应颜色并更新。
+     *
+     * 仅处理 isDefault=true 且 color=0 的分类（跳过用户自定义分类和已有颜色的分类）。
+     * 一级分类按 name + flowSign 精确匹配 CategoryDefaults 中的颜色；
+     * 二级分类按父分类的 flowSign 取对应的默认语义色（支出浅红 / 收入浅绿）。
+     */
+    private suspend fun backfillCategoryColors(allCategories: List<CategoryDefEntity>) {
+        // 构建 top-level name → color 查找表
+        val topLevelColorMap = mutableMapOf<String, Long>()
+        val allDefaults = CategoryDefaults.expenseCategories + CategoryDefaults.incomeCategories
+        for (cat in allDefaults) {
+            topLevelColorMap[cat.name] = cat.color
+        }
+
+        for (category in allCategories) {
+            if (category.color != 0L || !category.isDefault) continue
+
+            if (category.parentId == null) {
+                // 一级分类：按名称匹配默认颜色
+                val color = topLevelColorMap[category.name] ?: continue
+                categoryDefDao.updateCategory(category.copy(color = color))
+            } else {
+                // 二级分类：按父分类 flowSign 取语义默认色
+                val parent = allCategories.firstOrNull { it.id == category.parentId } ?: continue
+                val defaultColor = if (parent.flowSign >= 0)
+                    CategoryDefaults.incomeDefaultColor
+                else
+                    CategoryDefaults.expenseDefaultColor
+                categoryDefDao.updateCategory(category.copy(color = defaultColor))
+            }
         }
     }
 
