@@ -52,6 +52,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import com.wyd.mypurse.ui.theme.AppEditWarningBg
+import com.wyd.mypurse.ui.theme.AppEditWarningText
+import com.wyd.mypurse.ui.theme.AppExpenseRed
+import com.wyd.mypurse.ui.theme.AppIncomeGreen
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -229,7 +233,7 @@ private fun EditModeContentFull(
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         isError = editState.editAmountError != null,
-        supportingText = editState.editAmountError?.let { { Text(it, color = Color(0xFFE53935)) } },
+        supportingText = editState.editAmountError?.let { { Text(it, color = AppExpenseRed) } },
         prefix = { Text(if (editState.editFlowType == "支出") "-" else "+") }
     )
 
@@ -248,12 +252,12 @@ private fun EditModeContentFull(
     // 固定模板提示
     if (editState.isRecurring) {
         Spacer(modifier = Modifier.height(12.dp))
-        Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3E0))) {
+        Card(colors = CardDefaults.cardColors(containerColor = AppEditWarningBg)) {
             Text(
                 text = "⚠ 编辑后该记录将与固定模板解除关联",
                 modifier = Modifier.padding(12.dp),
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFFE65100)
+                color = AppEditWarningText
             )
         }
     }
@@ -289,14 +293,14 @@ private fun FlowTypeSelector(currentType: String, onSelect: (String) -> Unit) {
         FlowTypeChip(
             label = "支出",
             selected = currentType == "支出",
-            color = Color(0xFFE53935),
+            color = AppExpenseRed,
             onClick = { onSelect("支出") },
             modifier = Modifier.weight(1f)
         )
         FlowTypeChip(
             label = "收入",
             selected = currentType != "支出",
-            color = Color(0xFF43A047),
+            color = AppIncomeGreen,
             onClick = { onSelect("收入") },
             modifier = Modifier.weight(1f)
         )

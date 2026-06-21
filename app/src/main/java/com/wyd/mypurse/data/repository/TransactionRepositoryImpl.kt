@@ -100,7 +100,7 @@ class TransactionRepositoryImpl @Inject constructor(
         limit: Int
     ): List<CategoryAmount> {
         return transactionDao.getTopCategoriesByMonth(year, month, limit).map {
-            CategoryAmount(categoryL1Id = it.categoryL1Id, categoryL1 = it.categoryL1, total = it.total)
+            CategoryAmount(categoryL1Id = it.categoryL1Id, categoryL1 = it.categoryL1, total = it.total, color = it.color)
         }
     }
 
@@ -200,7 +200,7 @@ class TransactionRepositoryImpl @Inject constructor(
         flowType: String?
     ): List<CategoryAmount> {
         return transactionDao.getCategoryComposition(rangeStart, rangeEnd, flowType)
-            .map { CategoryAmount(categoryL1Id = it.categoryL1Id, categoryL1 = it.categoryL1, total = it.total) }
+            .map { CategoryAmount(categoryL1Id = it.categoryL1Id, categoryL1 = it.categoryL1, total = it.total, color = it.color) }
     }
 
     override suspend fun getSubCategoryComposition(
@@ -210,7 +210,7 @@ class TransactionRepositoryImpl @Inject constructor(
         categoryL1Id: Long
     ): List<CategoryAmount> {
         return transactionDao.getSubCategoryComposition(rangeStart, rangeEnd, flowType, categoryL1Id)
-            .map { CategoryAmount(categoryL1Id = categoryL1Id, categoryL1 = it.categoryL1, total = it.total) }
+            .map { CategoryAmount(categoryL1Id = categoryL1Id, categoryL1 = it.categoryL1, total = it.total, color = it.color) }
     }
 
     override suspend fun getExpenseTrend(

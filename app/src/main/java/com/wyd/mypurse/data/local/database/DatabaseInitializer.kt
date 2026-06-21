@@ -86,6 +86,11 @@ class DatabaseInitializer @Inject constructor(
         topLevel: List<com.wyd.mypurse.domain.model.Category>,
         subMap: Map<String, List<String>>
     ) {
+        val defaultColor = if (topLevel.firstOrNull()?.flowSign?.let { it >= 0 } == true)
+            CategoryDefaults.incomeDefaultColor
+        else
+            CategoryDefaults.expenseDefaultColor
+
         for (category in topLevel) {
             val id = categoryDefDao.insertCategory(
                 CategoryDefEntity(
@@ -93,7 +98,8 @@ class DatabaseInitializer @Inject constructor(
                     parentId = null,
                     isDefault = true,
                     sortOrder = category.sortOrder,
-                    flowSign = category.flowSign
+                    flowSign = category.flowSign,
+                    color = category.color
                 )
             )
             val subs = subMap[category.name] ?: continue
@@ -104,7 +110,8 @@ class DatabaseInitializer @Inject constructor(
                         parentId = id,
                         isDefault = true,
                         sortOrder = index + 1,
-                        flowSign = category.flowSign
+                        flowSign = category.flowSign,
+                        color = defaultColor
                     )
                 )
             }

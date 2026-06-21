@@ -42,5 +42,13 @@ data class CategoryDefEntity(
      * 与 FlowType.sign 对齐。
      */
     @ColumnInfo(name = "flow_sign")
-    val flowSign: Int = -1
+    val flowSign: Int = -1,
+
+    /**
+     * 分类专属颜色（ARGB 色值，Long 型存储）。
+     * 0 表示未设置，UI 层 fallback 到 flowSign 对应的默认语义色（支出红/收入绿）。
+     * V1.1 预留：后续支持用户自定义颜色。
+     */
+    @ColumnInfo(name = "color")
+    val color: Long = 0
 )

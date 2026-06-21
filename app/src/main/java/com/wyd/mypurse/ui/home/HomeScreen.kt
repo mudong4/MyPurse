@@ -55,6 +55,7 @@ import com.wyd.mypurse.ui.theme.AppBudgetOverRed
 import com.wyd.mypurse.ui.theme.AppExpenseRed
 import com.wyd.mypurse.ui.theme.AppIncomeGreen
 import com.wyd.mypurse.ui.theme.AppProgressTrack
+import com.wyd.mypurse.ui.theme.categoryColor
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.DecimalFormat
@@ -552,7 +553,8 @@ private fun TopCategoriesCard(
                     name = category.categoryL1,
                     amount = category.total,
                     ratio = ratio,
-                    percent = percent
+                    percent = percent,
+                    color = categoryColor(category.color)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -565,8 +567,10 @@ private fun CategoryRankRow(
     name: String,
     amount: BigDecimal,
     ratio: Float,
-    percent: BigDecimal
+    percent: BigDecimal,
+    color: Color? = null
 ) {
+    val barColor = color ?: AppBudgetBlue
     Column {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -590,7 +594,7 @@ private fun CategoryRankRow(
                 .fillMaxWidth()
                 .height(6.dp)
                 .clip(RoundedCornerShape(3.dp)),
-            color = AppBudgetBlue,
+            color = barColor,
             trackColor = AppProgressTrack,
         )
     }

@@ -89,6 +89,7 @@ import com.wyd.mypurse.ui.theme.AppIncomeGreen
 import com.wyd.mypurse.ui.theme.AppSheetBg
 import com.wyd.mypurse.ui.theme.AppSurfaceBg
 import com.wyd.mypurse.ui.theme.DefaultChartColors
+import com.wyd.mypurse.ui.theme.categoryColor
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -376,7 +377,8 @@ private fun DonutChart(
                 } else 0f
 
                 drawArc(
-                    color = DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size],
+                    color = categoryColor(item.color)
+                        ?: DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size],
                     startAngle = startAngle,
                     sweepAngle = sweep,
                     useCenter = false,
@@ -417,7 +419,8 @@ private fun DonutChart(
                         .clip(RoundedCornerShape(2.dp))
                 ) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
-                        drawRect(color = DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size])
+                        drawRect(color = categoryColor(item.color)
+                            ?: DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size])
                     }
                 }
                 Spacer(modifier = Modifier.width(8.dp))
@@ -454,7 +457,8 @@ private fun CompositionBarList(
         val pctText = if (total > BigDecimal.ZERO) {
             item.total.multiply(BigDecimal("100")).divide(total, 1, RoundingMode.HALF_UP)
         } else BigDecimal.ZERO
-        val color = DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size]
+        val color = categoryColor(item.color)
+            ?: DefaultChartColors.chartPalette[index % DefaultChartColors.chartPalette.size]
 
         CompositionBar(
             name = item.categoryL1,

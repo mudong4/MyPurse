@@ -4,32 +4,41 @@ import com.wyd.mypurse.domain.model.Category
 
 /**
  * 内置分类种子数据定义。所有默认分类集中管理，便于恢复。
+ *
+ * V1.0.1 新增 color 字段：每个内置分类有固定颜色，各页面统一从 Category.color 取色。
+ * 支出侧分类使用红/橙/紫等暖色系，收入侧使用绿/蓝/青等冷色系。
  */
 object CategoryDefaults {
 
+    /** 支出侧默认颜色（未设置 color 时的 fallback）：浅红 */
+    const val expenseDefaultColor: Long = 0xFFFFCDD2  // 浅红
+
+    /** 收入侧默认颜色（未设置 color 时的 fallback）：浅绿 */
+    const val incomeDefaultColor: Long = 0xFFC8E6C9   // 浅绿
+
     /** 支出侧内置一级分类（flowSign = -1） */
     val expenseCategories: List<Category> = listOf(
-        Category(id = 0, name = "餐饮", parentId = null, isDefault = true, sortOrder = 1, flowSign = -1),
-        Category(id = 0, name = "交通", parentId = null, isDefault = true, sortOrder = 2, flowSign = -1),
-        Category(id = 0, name = "购物", parentId = null, isDefault = true, sortOrder = 3, flowSign = -1),
-        Category(id = 0, name = "娱乐", parentId = null, isDefault = true, sortOrder = 4, flowSign = -1),
-        Category(id = 0, name = "住房", parentId = null, isDefault = true, sortOrder = 5, flowSign = -1),
-        Category(id = 0, name = "通讯", parentId = null, isDefault = true, sortOrder = 6, flowSign = -1),
-        Category(id = 0, name = "医疗", parentId = null, isDefault = true, sortOrder = 7, flowSign = -1),
-        Category(id = 0, name = "教育", parentId = null, isDefault = true, sortOrder = 8, flowSign = -1),
-        Category(id = 0, name = "其他支出", parentId = null, isDefault = true, sortOrder = 9, flowSign = -1),
+        Category(id = 0, name = "餐饮", parentId = null, isDefault = true, sortOrder = 1, flowSign = -1, color = 0xFFFF7043),
+        Category(id = 0, name = "交通", parentId = null, isDefault = true, sortOrder = 2, flowSign = -1, color = 0xFF42A5F5),
+        Category(id = 0, name = "购物", parentId = null, isDefault = true, sortOrder = 3, flowSign = -1, color = 0xFFAB47BC),
+        Category(id = 0, name = "娱乐", parentId = null, isDefault = true, sortOrder = 4, flowSign = -1, color = 0xFFEF5350),
+        Category(id = 0, name = "住房", parentId = null, isDefault = true, sortOrder = 5, flowSign = -1, color = 0xFF8D6E63),
+        Category(id = 0, name = "通讯", parentId = null, isDefault = true, sortOrder = 6, flowSign = -1, color = 0xFF26A69A),
+        Category(id = 0, name = "医疗", parentId = null, isDefault = true, sortOrder = 7, flowSign = -1, color = 0xFFEC407A),
+        Category(id = 0, name = "教育", parentId = null, isDefault = true, sortOrder = 8, flowSign = -1, color = 0xFF5C6BC0),
+        Category(id = 0, name = "其他支出", parentId = null, isDefault = true, sortOrder = 9, flowSign = -1, color = 0xFFBDBDBD),
     )
 
     /** 收入侧内置一级分类（flowSign = 1） */
     val incomeCategories: List<Category> = listOf(
-        Category(id = 0, name = "工资", parentId = null, isDefault = true, sortOrder = 1, flowSign = 1),
-        Category(id = 0, name = "奖金", parentId = null, isDefault = true, sortOrder = 2, flowSign = 1),
-        Category(id = 0, name = "理财", parentId = null, isDefault = true, sortOrder = 3, flowSign = 1),
-        Category(id = 0, name = "兼职", parentId = null, isDefault = true, sortOrder = 4, flowSign = 1),
-        Category(id = 0, name = "报销", parentId = null, isDefault = true, sortOrder = 5, flowSign = 1),
-        Category(id = 0, name = "退款", parentId = null, isDefault = true, sortOrder = 6, flowSign = 1),
-        Category(id = 0, name = "红包", parentId = null, isDefault = true, sortOrder = 7, flowSign = 1),
-        Category(id = 0, name = "其他收入", parentId = null, isDefault = true, sortOrder = 8, flowSign = 1),
+        Category(id = 0, name = "工资", parentId = null, isDefault = true, sortOrder = 1, flowSign = 1, color = 0xFF43A047),
+        Category(id = 0, name = "奖金", parentId = null, isDefault = true, sortOrder = 2, flowSign = 1, color = 0xFF66BB6A),
+        Category(id = 0, name = "理财", parentId = null, isDefault = true, sortOrder = 3, flowSign = 1, color = 0xFF26C6DA),
+        Category(id = 0, name = "兼职", parentId = null, isDefault = true, sortOrder = 4, flowSign = 1, color = 0xFF7E57C2),
+        Category(id = 0, name = "报销", parentId = null, isDefault = true, sortOrder = 5, flowSign = 1, color = 0xFF29B6F6),
+        Category(id = 0, name = "退款", parentId = null, isDefault = true, sortOrder = 6, flowSign = 1, color = 0xFF9CCC65),
+        Category(id = 0, name = "红包", parentId = null, isDefault = true, sortOrder = 7, flowSign = 1, color = 0xFFEF5350),
+        Category(id = 0, name = "其他收入", parentId = null, isDefault = true, sortOrder = 8, flowSign = 1, color = 0xFFBDBDBD),
     )
 
     /** 合并后的一级分类（兼容旧代码调用 allCategories 的场景） */

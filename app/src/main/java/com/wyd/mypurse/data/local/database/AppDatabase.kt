@@ -22,6 +22,7 @@ import com.wyd.mypurse.data.local.entity.TransactionEntity
  * - V2：CategoryDefEntity 新增 flow_sign 列
  * - V3：新增 BudgetEntity 表
  * - V4：新增 RecurringTemplateEntity 表
+ * - V5：CategoryDefEntity 新增 color 列（ARGB 色值，默认 0）
  */
 @Database(
     entities = [
@@ -30,7 +31,7 @@ import com.wyd.mypurse.data.local.entity.TransactionEntity
         BudgetEntity::class,
         RecurringTemplateEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 @TypeConverters(BigDecimalConverter::class)
@@ -83,7 +84,14 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /** V4 → V5：category_def 表新增 color 列，默认 0（未设置） */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE category_def ADD COLUMN color INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         /** 所有 Migration 列表 */
-        val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+        val ALL_MIGRATIONS = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
     }
 }

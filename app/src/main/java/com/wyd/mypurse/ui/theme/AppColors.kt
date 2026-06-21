@@ -11,7 +11,16 @@ import androidx.compose.ui.graphics.Color
  * - 第一层：MaterialTheme.colorScheme（页面背景/卡片/文字框架色，自动适配明暗）
  * - 第二层：AppColors（支出红/收入绿/预算色/图表色，全局统一）
  * - 第三层：极少数页面级硬编码色
+ *
+ * V1.0.1：新增 [categoryColor] 工具函数，将 Category.color（Long 型 ARGB 色值）转为 Compose Color。
+ *          color 为 0 时返回透明色，由调用方 fallback 到默认语义色。
  */
+
+/**
+ * 将 Category.color（Long 型 ARGB 色值）转为 Compose [Color]。
+ * 返回 null 表示 color 未设置（值为 0），调用方应 fallback 到默认色。
+ */
+fun categoryColor(argb: Long): Color? = if (argb == 0L) null else Color(argb)
 
 // ========== 功能语义色 ==========
 

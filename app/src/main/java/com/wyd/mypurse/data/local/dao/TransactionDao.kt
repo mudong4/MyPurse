@@ -173,17 +173,20 @@ interface TransactionDao {
 
     /**
      * 指定月份按一级分类汇总的支出排名。
+     * JOIN category_def 获取分类颜色。
      */
     @Query("""
         SELECT 
-            category_l1_id AS categoryL1Id,
-            category_l1 AS categoryL1,
-            SUM(amount) AS total
-        FROM `transaction`
-        WHERE flow_type = '支出' 
-          AND CAST(strftime('%Y', date / 1000, 'unixepoch') AS INTEGER) = :year
-          AND CAST(strftime('%m', date / 1000, 'unixepoch') AS INTEGER) = :month
-        GROUP BY category_l1_id, category_l1
+            t.category_l1_id AS categoryL1Id,
+            t.category_l1 AS categoryL1,
+            SUM(t.amount) AS total,
+            COALESCE(cd.color, 0) AS color
+        FROM `transaction` t
+        LEFT JOIN category_def cd ON t.category_l1_id = cd.id
+        WHERE t.flow_type = '支出' 
+          AND CAST(strftime('%Y', t.date / 1000, 'unixepoch') AS INTEGER) = :year
+          AND CAST(strftime('%m', t.date / 1000, 'unixepoch') AS INTEGER) = :month
+        GROUP BY t.category_l1_id, t.category_l1
         ORDER BY total DESC
         LIMIT :limit
     """)
@@ -193,16 +196,19 @@ interface TransactionDao {
 
     /**
      * 按时间范围和流水类型汇总各一级分类金额（构成分析）。
+     * JOIN category_def 获取分类颜色。
      */
     @Query("""
         SELECT 
-            category_l1_id AS categoryL1Id,
-            category_l1 AS categoryL1,
-            SUM(amount) AS total
-        FROM `transaction`
-        WHERE date BETWEEN :rangeStart AND :rangeEnd
-          AND (:flowType IS NULL OR flow_type = :flowType)
-        GROUP BY category_l1_id, category_l1
+            t.category_l1_id AS categoryL1Id,
+            t.category_l1 AS categoryL1,
+            SUM(t.amount) AS total,
+            COALESCE(cd.color, 0) AS color
+        FROM `transaction` t
+        LEFT JOIN category_def cd ON t.category_l1_id = cd.id
+        WHERE t.date BETWEEN :rangeStart AND :rangeEnd
+          AND (:flowType IS NULL OR t.flow_type = :flowType)
+        GROUP BY t.category_l1_id, t.category_l1
         ORDER BY total DESC
     """)
     suspend fun getCategoryComposition(
@@ -213,17 +219,20 @@ interface TransactionDao {
 
     /**
      * 按时间范围和一级分类汇总二级分类金额（构成分析 - 展开二级）。
+     * 二级分类颜色取父级分类（category_def）的颜色。
      */
     @Query("""
         SELECT 
-            category_l2 AS categoryL1,
-            SUM(amount) AS total
-        FROM `transaction`
-        WHERE date BETWEEN :rangeStart AND :rangeEnd
-          AND (:flowType IS NULL OR flow_type = :flowType)
-          AND category_l1_id = :categoryL1Id
-          AND category_l2 IS NOT NULL
-        GROUP BY category_l2
+            t.category_l2 AS categoryL1,
+            SUM(t.amount) AS total,
+            COALESCE(cd.color, 0) AS color
+        FROM `transaction` t
+        LEFT JOIN category_def cd ON t.category_l2_id = cd.id
+        WHERE t.date BETWEEN :rangeStart AND :rangeEnd
+          AND (:flowType IS NULL OR t.flow_type = :flowType)
+          AND t.category_l1_id = :categoryL1Id
+          AND t.category_l2 IS NOT NULL
+        GROUP BY t.category_l2
         ORDER BY total DESC
     """)
     suspend fun getSubCategoryComposition(

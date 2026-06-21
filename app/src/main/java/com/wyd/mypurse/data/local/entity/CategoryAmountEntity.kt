@@ -8,7 +8,9 @@ import java.math.BigDecimal
 data class CategoryAmountEntity(
     val categoryL1Id: Long?,
     val categoryL1: String,
-    val total: BigDecimal
+    val total: BigDecimal,
+    /** 分类颜色（ARGB 色值），从 category_def.color 取。0 表示未设置 */
+    val color: Long = 0
 )
 
 /**

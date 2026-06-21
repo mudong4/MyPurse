@@ -50,12 +50,15 @@ class CategoryRepositoryImpl @Inject constructor(
         flowSign: Int
     ): Long {
         val maxOrder = categoryDefDao.getMaxSortOrder(parentId)
+        val defaultColor = if (flowSign >= 0) CategoryDefaults.incomeDefaultColor
+                          else CategoryDefaults.expenseDefaultColor
         val entity = CategoryDefEntity(
             name = name,
             parentId = parentId,
             isDefault = isDefault,
             sortOrder = maxOrder + 1,
-            flowSign = flowSign
+            flowSign = flowSign,
+            color = defaultColor
         )
         return categoryDefDao.insertCategory(entity)
     }
@@ -117,11 +120,20 @@ class CategoryRepositoryImpl @Inject constructor(
         val defaults = CategoryDefaults.allCategories
         val existing = categoryDefDao.getAllCategoriesOnce()
 
-        // 1. 恢复一级分类排序：将已存在的一级分类 sortOrder 重置为默认值
+        // 1. 恢复一级分类排序和颜色：将已存在的一级分类 sortOrder/color 重置为默认值
         for (default in defaults) {
             val match = existing.find { it.name == default.name && it.parentId == null }
-            if (match != null && match.sortOrder != default.sortOrder) {
-                categoryDefDao.updateSortOrder(match.id, default.sortOrder)
+            if (match != null) {
+                val needsSortUpdate = match.sortOrder != default.sortOrder
+                val needsColorUpdate = match.color == 0L && default.color != 0L
+                if (needsSortUpdate || needsColorUpdate) {
+                    categoryDefDao.updateCategory(
+                        match.copy(
+                            sortOrder = if (needsSortUpdate) default.sortOrder else match.sortOrder,
+                            color = if (needsColorUpdate) default.color else match.color
+                        )
+                    )
+                }
             }
         }
 
@@ -142,13 +154,16 @@ class CategoryRepositoryImpl @Inject constructor(
 
             for ((index, subName) in subs.withIndex()) {
                 if (subName !in existingSubNames) {
+                    val subColor = if (parent.flowSign >= 0) CategoryDefaults.incomeDefaultColor
+                                  else CategoryDefaults.expenseDefaultColor
                     categoryDefDao.insertCategory(
                         CategoryDefEntity(
                             name = subName,
                             parentId = parent.id,
                             isDefault = true,
                             sortOrder = index + 1,
-                            flowSign = parent.flowSign
+                            flowSign = parent.flowSign,
+                            color = subColor
                         )
                     )
                 }
@@ -163,7 +178,8 @@ class CategoryRepositoryImpl @Inject constructor(
         isDefault = entity.isDefault,
         isHidden = entity.isHidden,
         sortOrder = entity.sortOrder,
-        flowSign = entity.flowSign
+        flowSign = entity.flowSign,
+        color = entity.color
     )
 
     private fun toEntity(model: Category): CategoryDefEntity = CategoryDefEntity(
@@ -173,6 +189,7 @@ class CategoryRepositoryImpl @Inject constructor(
         isDefault = model.isDefault,
         isHidden = model.isHidden,
         sortOrder = model.sortOrder,
-        flowSign = model.flowSign
+        flowSign = model.flowSign,
+        color = model.color
     )
 }
