@@ -186,6 +186,13 @@ fun TemplateEditScreen(
                         label = { Text("每月几号（1-31）") },
                         placeholder = { Text("如 15") }
                     )
+                    // 提示月末截断行为
+                    Text(
+                        "若当月无此日期，自动退到月末最后一天",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
                 CycleTypeOption.YEARLY -> {
                     Row(
@@ -220,6 +227,13 @@ fun TemplateEditScreen(
                             label = { Text("日") }
                         )
                     }
+                    // 提示月末截断行为
+                    Text(
+                        "若当月无此日期，自动退到月末最后一天",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
                 }
             }
 

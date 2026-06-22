@@ -177,7 +177,30 @@ interface TransactionRepository {
     suspend fun getTransactionCount(): Int
 
     /**
+     * V1.1.x 批量插入交易记录（单事务），供 RecurringScheduler 自动记账使用。
+     * 参数与 insertTransaction 一一对应。
+     */
+    suspend fun insertTransactions(
+        specs: List<TransactionInsertSpec>
+    ): List<Long>
+
+    /**
      * 检查指定模板在指定日期是否已有自动记账记录（防重复）。
      */
     suspend fun countByTemplateAndDate(templateId: Long, dayStart: Long, dayEnd: Long): Int
 }
+
+/**
+ * 批量插入的交易规格，供 [TransactionRepository.insertTransactions] 使用。
+ */
+data class TransactionInsertSpec(
+    val flowType: String,
+    val categoryL1Id: Long?,
+    val categoryL2Id: Long?,
+    val categoryL1: String,
+    val categoryL2: String?,
+    val amount: java.math.BigDecimal,
+    val note: String?,
+    val date: Long,
+    val recurringTemplateId: Long? = null
+)

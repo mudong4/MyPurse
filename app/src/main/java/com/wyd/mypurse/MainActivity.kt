@@ -65,9 +65,16 @@ class MainActivity : ComponentActivity() {
 fun AppEntry(scheduler: RecurringScheduler) {
     var showSplash by remember { mutableStateOf(true) }
 
-    // V1.1 冷启动自动记账
+    // V1.1 冷启动自动记账 + 启动图展示
+    // splash 等到 execute() 完成后再消失，避免首页数字在补记过程中闪烁变化
     LaunchedEffect(Unit) {
+        val startTime = System.currentTimeMillis()
         scheduler.execute()
+        // 保证启动图至少显示 800ms，execute 快了就补齐，慢了就不额外等
+        val elapsed = System.currentTimeMillis() - startTime
+        val remaining = 800L - elapsed
+        if (remaining > 0) delay(remaining)
+        showSplash = false
     }
 
     if (showSplash) {
@@ -80,12 +87,6 @@ fun AppEntry(scheduler: RecurringScheduler) {
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.FillBounds
         )
-
-        // 短暂展示后切换到主界面
-        LaunchedEffect(Unit) {
-            delay(800L)
-            showSplash = false
-        }
     } else {
         MyPurseNavHost()
     }

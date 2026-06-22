@@ -3,6 +3,7 @@ package com.wyd.mypurse.data.local
 import android.util.Log
 import com.wyd.mypurse.domain.repository.CategoryRepository
 import com.wyd.mypurse.domain.repository.RecurringTemplateRepository
+import com.wyd.mypurse.domain.repository.TransactionInsertSpec
 import com.wyd.mypurse.domain.repository.TransactionRepository
 import java.util.Calendar
 import java.util.GregorianCalendar
@@ -73,11 +74,13 @@ class RecurringScheduler @Inject constructor(
 
                     if (rangeStart > today) continue // 没有需要补记的
 
-                    // 生成范围内所有应执行日期并创建记录
+                    // 生成范围内所有应执行日期
                     val calendar = GregorianCalendar()
                     calendar.timeInMillis = rangeStart
 
+                    val pendingSpecs = mutableListOf<TransactionInsertSpec>()
                     var latestExecuted: Long? = lastExec
+
                     while (calendar.timeInMillis <= today) {
                         if (matchesTemplate(calendar, template.cycleType, template.cycleValue)) {
                             val dateMs = calendar.timeInMillis
@@ -97,23 +100,31 @@ class RecurringScheduler @Inject constructor(
                                 val l2Name = template.categoryL2Id?.let {
                                     categoryRepository.getCategoryById(it)?.name
                                 }
-                                transactionRepository.insertTransaction(
-                                    flowType = template.flowType,
-                                    categoryL1Id = template.categoryL1Id,
-                                    categoryL2Id = template.categoryL2Id,
-                                    categoryL1 = l1Name,
-                                    categoryL2 = l2Name,
-                                    amount = template.amount,
-                                    note = template.note,
-                                    date = dateMs,
-                                    recurringTemplateId = template.id
+
+                                pendingSpecs.add(
+                                    TransactionInsertSpec(
+                                        flowType = template.flowType,
+                                        categoryL1Id = template.categoryL1Id,
+                                        categoryL2Id = template.categoryL2Id,
+                                        categoryL1 = l1Name,
+                                        categoryL2 = l2Name,
+                                        amount = template.amount,
+                                        note = template.note,
+                                        date = dateMs,
+                                        recurringTemplateId = template.id
+                                    )
                                 )
-                                createdCount++
-                                Log.i(TAG, "创建自动记录: templateId=${template.id}, date=$dateMs")
                             }
                             latestExecuted = dateMs
                         }
                         calendar.add(Calendar.DAY_OF_MONTH, 1)
+                    }
+
+                    // 批量写入（单事务），避免逐条插入被中断导致模板状态不一致
+                    if (pendingSpecs.isNotEmpty()) {
+                        transactionRepository.insertTransactions(pendingSpecs)
+                        createdCount += pendingSpecs.size
+                        Log.i(TAG, "批量创建自动记录: templateId=${template.id}, count=${pendingSpecs.size}")
                     }
 
                     // 更新模板状态

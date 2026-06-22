@@ -20,6 +20,10 @@ interface TransactionDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransaction(transaction: TransactionEntity): Long
 
+    /** V1.1.x 批量插入（自动事务包裹），供 RecurringScheduler 使用 */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertTransactions(entities: List<TransactionEntity>): List<Long>
+
     @Update
     suspend fun updateTransaction(transaction: TransactionEntity)
 

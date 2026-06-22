@@ -13,6 +13,7 @@ import com.wyd.mypurse.domain.model.MonthlyAmount
 import com.wyd.mypurse.domain.model.PeriodSummary
 import com.wyd.mypurse.domain.model.Transaction
 import com.wyd.mypurse.domain.model.TrendPoint
+import com.wyd.mypurse.domain.repository.TransactionInsertSpec
 import com.wyd.mypurse.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -150,6 +151,29 @@ class TransactionRepositoryImpl @Inject constructor(
             recurringTemplateId = recurringTemplateId
         )
         return transactionDao.insertTransaction(entity)
+    }
+
+    override suspend fun insertTransactions(
+        specs: List<TransactionInsertSpec>
+    ): List<Long> {
+        if (specs.isEmpty()) return emptyList()
+        val now = System.currentTimeMillis()
+        val entities = specs.map { spec ->
+            TransactionEntity(
+                flowType = spec.flowType,
+                categoryL1Id = spec.categoryL1Id,
+                categoryL2Id = spec.categoryL2Id,
+                categoryL1 = spec.categoryL1,
+                categoryL2 = spec.categoryL2,
+                amount = spec.amount,
+                note = spec.note,
+                date = spec.date,
+                createTime = now,
+                ledgerId = "default",
+                recurringTemplateId = spec.recurringTemplateId
+            )
+        }
+        return transactionDao.insertTransactions(entities).toList()
     }
 
     // ========== 流水列表 ==========

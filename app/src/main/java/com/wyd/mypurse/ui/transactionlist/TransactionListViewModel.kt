@@ -235,12 +235,14 @@ class TransactionListViewModel @Inject constructor(
         _uiState.update { it.copy(showDatePicker = false) }
     }
 
+    /** 非日视图分页时累积的交易列表 */
+    private val accumulatedList = mutableListOf<Transaction>()
+
     // ========== 分页 ==========
 
     fun loadMore() {
         val state = _uiState.value
         if (!state.hasMore || state.isLoading) return
-        if (state.granularity != TimeGranularity.DAY || state.groupMode != GroupMode.TIME) return
         loadData(append = true)
     }
 
@@ -274,7 +276,10 @@ class TransactionListViewModel @Inject constructor(
         loadJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
 
-            if (!append) currentOffset = 0
+            if (!append) {
+                currentOffset = 0
+                accumulatedList.clear()
+            }
 
             try {
                 val (rangeStart, rangeEnd) = calculateTimeRange(state)
@@ -285,12 +290,12 @@ class TransactionListViewModel @Inject constructor(
                     }
                     state.groupMode == GroupMode.CATEGORY_L1 ||
                     state.groupMode == GroupMode.CATEGORY_L2 -> {
-                        loadCategoryView(state, rangeStart, rangeEnd)
+                        loadCategoryView(state, rangeStart, rangeEnd, append)
                     }
                     else -> when (state.granularity) {
-                        TimeGranularity.YEAR -> loadYearView(state, rangeStart, rangeEnd)
-                        TimeGranularity.MONTH -> loadMonthView(state, rangeStart, rangeEnd)
-                        TimeGranularity.WEEK -> loadWeekView(state, rangeStart, rangeEnd)
+                        TimeGranularity.YEAR -> loadYearView(state, rangeStart, rangeEnd, append)
+                        TimeGranularity.MONTH -> loadMonthView(state, rangeStart, rangeEnd, append)
+                        TimeGranularity.WEEK -> loadWeekView(state, rangeStart, rangeEnd, append)
                         TimeGranularity.DAY -> loadDayView(state, rangeStart, rangeEnd, append)
                     }
                 }
@@ -310,67 +315,64 @@ class TransactionListViewModel @Inject constructor(
     private suspend fun loadCategoryView(
         state: TransactionListUiState,
         rangeStart: Long,
-        rangeEnd: Long
+        rangeEnd: Long,
+        append: Boolean
     ) {
-        val allTransactions = transactionRepository.getTransactionsByRange(
+        val flow = transactionRepository.getTransactionsByRange(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
             categoryFilter = null,
-            limit = maxLoadSize,
-            offset = 0
-        ).first()
-
-        if (allTransactions.isEmpty()) {
-            _uiState.update {
-                it.copy(isLoading = false, timeGroups = emptyList(), hasMore = false)
+            limit = pageSize,
+            offset = currentOffset
+        )
+        if (!append) accumulatedList.clear()
+        flow.catch { e ->
+            _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "加载失败") }
+        }.collect { transactions ->
+            accumulatedList.addAll(transactions)
+            val groups = if (state.groupMode == GroupMode.CATEGORY_L2) {
+                accumulatedList
+                    .groupBy { tx ->
+                        val l1 = tx.categoryL1
+                        val l2 = tx.categoryL2 ?: "其他"
+                        "$l1 · $l2"
+                    }
+                    .map { (label, list) ->
+                        val sorted = list.sortedByDescending { it.date }
+                        TimeGroup(
+                            label = label,
+                            rangeStart = rangeStart,
+                            rangeEnd = rangeEnd,
+                            totalExpense = sorted.filter { it.flowType == "支出" }.sumOf { it.amount },
+                            totalIncome = sorted.filter { it.flowType != "支出" }.sumOf { it.amount },
+                            transactions = sorted
+                        )
+                    }
+                    .sortedByDescending { it.totalExpense }
+            } else {
+                accumulatedList
+                    .groupBy { it.categoryL1 }
+                    .map { (catName, list) ->
+                        val sorted = list.sortedByDescending { it.date }
+                        TimeGroup(
+                            label = catName,
+                            rangeStart = rangeStart,
+                            rangeEnd = rangeEnd,
+                            totalExpense = sorted.filter { it.flowType == "支出" }.sumOf { it.amount },
+                            totalIncome = sorted.filter { it.flowType != "支出" }.sumOf { it.amount },
+                            transactions = sorted
+                        )
+                    }
+                    .sortedByDescending { it.totalExpense }
             }
-            return
-        }
-
-        val groups = if (state.groupMode == GroupMode.CATEGORY_L2) {
-            // 按二级分类分组
-            allTransactions
-                .groupBy { tx ->
-                    val l1 = tx.categoryL1
-                    val l2 = tx.categoryL2 ?: "其他"
-                    "$l1 · $l2"
-                }
-                .map { (label, list) ->
-                    val sorted = list.sortedByDescending { it.date }
-                    TimeGroup(
-                        label = label,
-                        rangeStart = rangeStart,
-                        rangeEnd = rangeEnd,
-                        totalExpense = sorted.filter { it.flowType == "支出" }.sumOf { it.amount },
-                        totalIncome = sorted.filter { it.flowType != "支出" }.sumOf { it.amount },
-                        transactions = sorted
-                    )
-                }
-                .sortedByDescending { it.totalExpense }
-        } else {
-            // 按一级分类分组
-            allTransactions
-                .groupBy { it.categoryL1 }
-                .map { (catName, list) ->
-                    val sorted = list.sortedByDescending { it.date }
-                    TimeGroup(
-                        label = catName,
-                        rangeStart = rangeStart,
-                        rangeEnd = rangeEnd,
-                        totalExpense = sorted.filter { it.flowType == "支出" }.sumOf { it.amount },
-                        totalIncome = sorted.filter { it.flowType != "支出" }.sumOf { it.amount },
-                        transactions = sorted
-                    )
-                }
-                .sortedByDescending { it.totalExpense }
-        }
-
-        _uiState.update {
-            it.copy(
-                isLoading = false,
-                timeGroups = groups,
-                hasMore = false
-            )
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    timeGroups = groups,
+                    hasMore = transactions.size == pageSize
+                )
+            }
+            currentOffset += transactions.size
         }
     }
 
@@ -379,153 +381,157 @@ class TransactionListViewModel @Inject constructor(
     private suspend fun loadYearView(
         state: TransactionListUiState,
         rangeStart: Long,
-        rangeEnd: Long
+        rangeEnd: Long,
+        append: Boolean
     ) {
-        val allTransactions = transactionRepository.getTransactionsByRange(
+        val flow = transactionRepository.getTransactionsByRange(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
             categoryFilter = null,
-            limit = maxLoadSize,
-            offset = 0
-        ).first()
-
-        if (allTransactions.isEmpty()) {
-            _uiState.update {
-                it.copy(isLoading = false, timeGroups = emptyList(), hasMore = false)
-            }
-            return
-        }
-
-        val groups = allTransactions
-            .groupBy { tx ->
-                val cal = Calendar.getInstance().apply { timeInMillis = tx.date }
-                cal.get(Calendar.MONTH) + 1
-            }
-            .map { (month, list) ->
-                val sortedList = list.sortedByDescending { it.date }
-                val cal = Calendar.getInstance().apply {
-                    set(state.currentYear, month - 1, 1)
+            limit = pageSize,
+            offset = currentOffset
+        )
+        if (!append) accumulatedList.clear()
+        flow.catch { e ->
+            _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "加载失败") }
+        }.collect { transactions ->
+            accumulatedList.addAll(transactions)
+            val groups = accumulatedList
+                .groupBy { tx ->
+                    val cal = Calendar.getInstance().apply { timeInMillis = tx.date }
+                    cal.get(Calendar.MONTH) + 1
                 }
-                val endCal = cal.clone() as Calendar
-                endCal.set(Calendar.DAY_OF_MONTH, endCal.getActualMaximum(Calendar.DAY_OF_MONTH))
-
-                TimeGroup(
-                    label = "${month}月",
-                    rangeStart = getDayStart(cal),
-                    rangeEnd = getDayEnd(endCal),
-                    totalExpense = list.filter { it.flowType == "支出" }.sumOf { it.amount },
-                    totalIncome = list.filter { it.flowType != "支出" }.sumOf { it.amount },
-                    transactions = sortedList
+                .map { (month, list) ->
+                    val sortedList = list.sortedByDescending { it.date }
+                    val cal = Calendar.getInstance().apply {
+                        set(state.currentYear, month - 1, 1)
+                    }
+                    val endCal = cal.clone() as Calendar
+                    endCal.set(Calendar.DAY_OF_MONTH, endCal.getActualMaximum(Calendar.DAY_OF_MONTH))
+                    TimeGroup(
+                        label = "${month}月",
+                        rangeStart = getDayStart(cal),
+                        rangeEnd = getDayEnd(endCal),
+                        totalExpense = list.filter { it.flowType == "支出" }.sumOf { it.amount },
+                        totalIncome = list.filter { it.flowType != "支出" }.sumOf { it.amount },
+                        transactions = sortedList
+                    )
+                }
+                .sortedByDescending { it.rangeStart }
+            _uiState.update {
+                it.copy(
+                    isLoading = false,
+                    timeGroups = groups,
+                    hasMore = transactions.size == pageSize
                 )
             }
-            .sortedByDescending { it.rangeStart }
-
-        _uiState.update {
-            it.copy(isLoading = false, timeGroups = groups, hasMore = false)
+            currentOffset += transactions.size
         }
     }
 
     private suspend fun loadMonthView(
         state: TransactionListUiState,
         rangeStart: Long,
-        rangeEnd: Long
+        rangeEnd: Long,
+        append: Boolean
     ) {
-        val allTransactions = transactionRepository.getTransactionsByRange(
+        val flow = transactionRepository.getTransactionsByRange(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
             categoryFilter = null,
-            limit = maxLoadSize,
-            offset = 0
-        ).first()
-
-        if (allTransactions.isEmpty()) {
+            limit = pageSize,
+            offset = currentOffset
+        )
+        if (!append) accumulatedList.clear()
+        flow.catch { e ->
+            _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "加载失败") }
+        }.collect { transactions ->
+            accumulatedList.addAll(transactions)
+            val groups = accumulatedList
+                .groupBy { tx ->
+                    val cal = Calendar.getInstance().apply { timeInMillis = tx.date }
+                    val dow = cal.get(Calendar.DAY_OF_WEEK)
+                    val daysFromMonday = if (dow == Calendar.SUNDAY) 6 else dow - Calendar.MONDAY
+                    cal.add(Calendar.DAY_OF_MONTH, -daysFromMonday)
+                    getDayStart(cal)
+                }
+                .map { (weekStartMs, list) ->
+                    val sortedList = list.sortedByDescending { it.date }
+                    val startCal = Calendar.getInstance().apply { timeInMillis = weekStartMs }
+                    val endCal = startCal.clone() as Calendar
+                    endCal.add(Calendar.DAY_OF_MONTH, 6)
+                    val weekNum = startCal.get(Calendar.WEEK_OF_YEAR)
+                    val label = "第${weekNum}周 " +
+                            "${startCal.get(Calendar.MONTH) + 1}.${startCal.get(Calendar.DAY_OF_MONTH)}-" +
+                            "${endCal.get(Calendar.MONTH) + 1}.${endCal.get(Calendar.DAY_OF_MONTH)}"
+                    TimeGroup(
+                        label = label,
+                        rangeStart = weekStartMs,
+                        rangeEnd = getDayEnd(endCal),
+                        totalExpense = list.filter { it.flowType == "支出" }.sumOf { it.amount },
+                        totalIncome = list.filter { it.flowType != "支出" }.sumOf { it.amount },
+                        transactions = sortedList
+                    )
+                }
+                .sortedByDescending { it.rangeStart }
             _uiState.update {
-                it.copy(isLoading = false, timeGroups = emptyList(), hasMore = false)
-            }
-            return
-        }
-
-        val groups = allTransactions
-            .groupBy { tx ->
-                val cal = Calendar.getInstance().apply { timeInMillis = tx.date }
-                val dow = cal.get(Calendar.DAY_OF_WEEK)
-                val daysFromMonday = if (dow == Calendar.SUNDAY) 6 else dow - Calendar.MONDAY
-                cal.add(Calendar.DAY_OF_MONTH, -daysFromMonday)
-                getDayStart(cal)
-            }
-            .map { (weekStartMs, list) ->
-                val sortedList = list.sortedByDescending { it.date }
-                val startCal = Calendar.getInstance().apply { timeInMillis = weekStartMs }
-                val endCal = startCal.clone() as Calendar
-                endCal.add(Calendar.DAY_OF_MONTH, 6)
-
-                val weekNum = startCal.get(Calendar.WEEK_OF_YEAR)
-                val label = "第${weekNum}周 " +
-                        "${startCal.get(Calendar.MONTH) + 1}.${startCal.get(Calendar.DAY_OF_MONTH)}-" +
-                        "${endCal.get(Calendar.MONTH) + 1}.${endCal.get(Calendar.DAY_OF_MONTH)}"
-
-                TimeGroup(
-                    label = label,
-                    rangeStart = weekStartMs,
-                    rangeEnd = getDayEnd(endCal),
-                    totalExpense = list.filter { it.flowType == "支出" }.sumOf { it.amount },
-                    totalIncome = list.filter { it.flowType != "支出" }.sumOf { it.amount },
-                    transactions = sortedList
+                it.copy(
+                    isLoading = false,
+                    timeGroups = groups,
+                    hasMore = transactions.size == pageSize
                 )
             }
-            .sortedByDescending { it.rangeStart }
-
-        _uiState.update {
-            it.copy(isLoading = false, timeGroups = groups, hasMore = false)
+            currentOffset += transactions.size
         }
     }
 
     private suspend fun loadWeekView(
         state: TransactionListUiState,
         rangeStart: Long,
-        rangeEnd: Long
+        rangeEnd: Long,
+        append: Boolean
     ) {
-        val allTransactions = transactionRepository.getTransactionsByRange(
+        val flow = transactionRepository.getTransactionsByRange(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
             categoryFilter = null,
-            limit = maxLoadSize,
-            offset = 0
-        ).first()
-
-        if (allTransactions.isEmpty()) {
+            limit = pageSize,
+            offset = currentOffset
+        )
+        if (!append) accumulatedList.clear()
+        flow.catch { e ->
+            _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "加载失败") }
+        }.collect { transactions ->
+            accumulatedList.addAll(transactions)
+            val dayOfWeekNames = listOf("", "周日", "周一", "周二", "周三", "周四", "周五", "周六")
+            val groups = accumulatedList
+                .groupBy { tx ->
+                    val cal = Calendar.getInstance().apply { timeInMillis = tx.date }
+                    getDayStart(cal)
+                }
+                .map { (dayStartMs, list) ->
+                    val sortedList = list.sortedByDescending { it.date }
+                    val cal = Calendar.getInstance().apply { timeInMillis = dayStartMs }
+                    val dow = cal.get(Calendar.DAY_OF_WEEK)
+                    val label = "${cal.get(Calendar.MONTH) + 1}月${cal.get(Calendar.DAY_OF_MONTH)}日 ${dayOfWeekNames[dow]}"
+                    TimeGroup(
+                        label = label,
+                        rangeStart = dayStartMs,
+                        rangeEnd = getDayEnd(cal),
+                        totalExpense = list.filter { it.flowType == "支出" }.sumOf { it.amount },
+                        totalIncome = list.filter { it.flowType != "支出" }.sumOf { it.amount },
+                        transactions = sortedList
+                    )
+                }
+                .sortedByDescending { it.rangeStart }
             _uiState.update {
-                it.copy(isLoading = false, timeGroups = emptyList(), hasMore = false)
-            }
-            return
-        }
-
-        val dayOfWeekNames = listOf("", "周日", "周一", "周二", "周三", "周四", "周五", "周六")
-
-        val groups = allTransactions
-            .groupBy { tx ->
-                val cal = Calendar.getInstance().apply { timeInMillis = tx.date }
-                getDayStart(cal)
-            }
-            .map { (dayStartMs, list) ->
-                val sortedList = list.sortedByDescending { it.date }
-                val cal = Calendar.getInstance().apply { timeInMillis = dayStartMs }
-                val dow = cal.get(Calendar.DAY_OF_WEEK)
-                val label = "${cal.get(Calendar.MONTH) + 1}月${cal.get(Calendar.DAY_OF_MONTH)}日 ${dayOfWeekNames[dow]}"
-
-                TimeGroup(
-                    label = label,
-                    rangeStart = dayStartMs,
-                    rangeEnd = getDayEnd(cal),
-                    totalExpense = list.filter { it.flowType == "支出" }.sumOf { it.amount },
-                    totalIncome = list.filter { it.flowType != "支出" }.sumOf { it.amount },
-                    transactions = sortedList
+                it.copy(
+                    isLoading = false,
+                    timeGroups = groups,
+                    hasMore = transactions.size == pageSize
                 )
             }
-            .sortedByDescending { it.rangeStart }
-
-        _uiState.update {
-            it.copy(isLoading = false, timeGroups = groups, hasMore = false)
+            currentOffset += transactions.size
         }
     }
 
