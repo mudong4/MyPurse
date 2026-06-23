@@ -136,24 +136,63 @@ class CategoryManageViewModel @Inject constructor(
     }
 
     /**
-     * 删除分类选项 1：直接删除，保留历史记录快照名
-     */
-    fun onDeleteKeepRecords() {
-        viewModelScope.launch {
-            val dialog = _uiState.value.deleteDialog ?: return@launch
-            categoryRepository.deleteCategory(dialog.category.id)
-            _uiState.value = _uiState.value.copy(deleteDialog = null)
-        }
-    }
-
-    /**
-     * 删除分类选项 2：删除分类及所有关联记录
+     * 删除分类选项：删除分类及所有关联记录
      */
     fun onDeleteWithRecords() {
         viewModelScope.launch {
             val dialog = _uiState.value.deleteDialog ?: return@launch
             categoryRepository.deleteCategoryWithRecords(dialog.category.id)
             _uiState.value = _uiState.value.copy(deleteDialog = null)
+            _event.emit(CategoryManageEvent.ShowToast("「${dialog.category.name}」及关联记录已删除"))
+        }
+    }
+
+    // ========== V1.2 合并分类迁移 ==========
+
+    /** 进入合并目标选择步骤 */
+    fun onMergeStart() {
+        val dialog = _uiState.value.deleteDialog ?: return
+        val sourceId = dialog.category.id
+        val isTopLevel = dialog.category.parentId == null
+
+        val candidates = if (isTopLevel) {
+            // 一级分类候选：同 flowSign 的其他一级分类（排除自身）
+            _uiState.value.currentTabCategories.filter { it.id != sourceId }
+        } else {
+            // 二级分类候选：同父级下的其他二级分类（排除自身）
+            val parentId = dialog.category.parentId ?: return
+            (_uiState.value.subCategories[parentId] ?: emptyList()).filter { it.id != sourceId }
+        }
+
+        _uiState.value = _uiState.value.copy(
+            deleteDialog = dialog.copy(mergeStep = 1, mergeTargetCandidates = candidates)
+        )
+    }
+
+    /** 退回合并选项步骤 */
+    fun onMergeBack() {
+        val dialog = _uiState.value.deleteDialog ?: return
+        _uiState.value = _uiState.value.copy(
+            deleteDialog = dialog.copy(mergeStep = 0, mergeTargetCandidates = emptyList())
+        )
+    }
+
+    /** 确认合并到目标分类 */
+    fun onMergeConfirm(targetId: Long) {
+        viewModelScope.launch {
+            val dialog = _uiState.value.deleteDialog ?: return@launch
+            val target = _uiState.value.deleteDialog?.mergeTargetCandidates?.find { it.id == targetId }
+            try {
+                categoryRepository.mergeCategoryAndDelete(dialog.category.id, targetId)
+                _uiState.value = _uiState.value.copy(deleteDialog = null)
+                _event.emit(
+                    CategoryManageEvent.ShowToast(
+                        "已合并到「${target?.name ?: "目标分类"}」"
+                    )
+                )
+            } catch (e: Exception) {
+                _event.emit(CategoryManageEvent.ShowToast("合并失败：${e.message}"))
+            }
         }
     }
 
@@ -258,22 +297,6 @@ class CategoryManageViewModel @Inject constructor(
     /** 关闭批量删除确认弹窗 */
     fun onDismissBatchDeleteDialog() {
         _uiState.value = _uiState.value.copy(batchDeleteDialog = null)
-    }
-
-    /** 批量删除 — 保留记录 */
-    fun onBatchDeleteKeepRecords() {
-        viewModelScope.launch {
-            val ids = _uiState.value.selectedCategoryIds.toList()
-            for (id in ids) {
-                categoryRepository.deleteCategory(id)
-            }
-            _uiState.value = _uiState.value.copy(
-                batchDeleteDialog = null,
-                selectedCategoryIds = emptySet(),
-                isBatchMode = false
-            )
-            _event.emit(CategoryManageEvent.ShowToast("已删除 ${ids.size} 个分类（记录已保留）"))
-        }
     }
 
     /** 批量删除 — 删除记录 */

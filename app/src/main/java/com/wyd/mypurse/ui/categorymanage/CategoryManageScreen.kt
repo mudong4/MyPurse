@@ -309,9 +309,13 @@ fun CategoryManageScreen(
         CategoryDeleteDialog(
             category = dialog.category,
             hasChildren = dialog.hasChildren,
+            mergeStep = dialog.mergeStep,
+            mergeTargetCandidates = dialog.mergeTargetCandidates,
             onDismiss = { viewModel.onDismissDeleteDialog() },
-            onDeleteKeepRecords = { viewModel.onDeleteKeepRecords() },
-            onDeleteWithRecords = { viewModel.onDeleteWithRecords() }
+            onDeleteWithRecords = { viewModel.onDeleteWithRecords() },
+            onMergeStart = { viewModel.onMergeStart() },
+            onMergeBack = { viewModel.onMergeBack() },
+            onMergeConfirm = { viewModel.onMergeConfirm(it) }
         )
     }
 
@@ -320,7 +324,6 @@ fun CategoryManageScreen(
         BatchDeleteDialog(
             count = dialog.selectedCount,
             onDismiss = { viewModel.onDismissBatchDeleteDialog() },
-            onDeleteKeepRecords = { viewModel.onBatchDeleteKeepRecords() },
             onDeleteWithRecords = { viewModel.onBatchDeleteWithRecords() }
         )
     }
@@ -589,85 +592,154 @@ private fun CategoryEditDialog(
 }
 
 /**
- * 删除分类确认弹窗（两选项）。
- * 选项 1：保留记录（仅删除分类定义）
- * 选项 2：删除分类及所有关联记录
+ * 删除分类确认弹窗（V1.2 简化：两选项）。
+ * 选项 1：删除分类及所有关联记录（红色警告）
+ * 选项 2：合并到其他分类
+ * 合并步骤 1：显示候选目标分类列表，点选即执行
  */
 @Composable
 private fun CategoryDeleteDialog(
     category: Category,
     hasChildren: Boolean,
+    mergeStep: Int = 0,
+    mergeTargetCandidates: List<Category> = emptyList(),
     onDismiss: () -> Unit,
-    onDeleteKeepRecords: () -> Unit,
-    onDeleteWithRecords: () -> Unit
+    onDeleteWithRecords: () -> Unit,
+    onMergeStart: () -> Unit,
+    onMergeBack: () -> Unit,
+    onMergeConfirm: (targetId: Long) -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("删除「${category.name}」") },
-        text = {
-            Column {
-                if (hasChildren) {
+    if (mergeStep == 1) {
+        // 合并目标选择
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("合并到哪个分类？") },
+            text = {
+                Column {
                     Text(
-                        text = "该分类下包含子分类，删除后将一并移除。",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
+                        text = "将「${category.name}」的记录迁移到目标分类，同时删除此分类。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-                }
-                Text("请选择删除方式：")
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 选项 1：保留记录
-                TextButton(
-                    onClick = onDeleteKeepRecords,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text("保留历史记录", fontWeight = FontWeight.Medium)
+                    if (mergeTargetCandidates.isEmpty()) {
                         Text(
-                            text = "仅删除分类，已存在的流水记录保留原分类名称",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // 选项 2：删除记录
-                TextButton(
-                    onClick = onDeleteWithRecords,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text(
-                            "删除分类及所有关联记录",
-                            fontWeight = FontWeight.Medium,
+                            text = "没有可合并的目标分类",
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.error
                         )
-                        Text(
-                            text = "将同时删除该分类下的所有流水记录",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
+                    } else {
+                        mergeTargetCandidates.forEach { target ->
+                            TextButton(
+                                onClick = { onMergeConfirm(target.id) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                // 颜色指示圆点
+                                val targetColor = categoryColor(target.color)
+                                if (targetColor != null) {
+                                    Box(
+                                        modifier = Modifier
+                                            .padding(end = 8.dp)
+                                            .size(12.dp)
+                                            .clip(CircleShape)
+                                            .background(targetColor)
+                                            .border(0.5.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                                    )
+                                }
+                                Text(
+                                    text = target.name,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "合并 →",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
                     }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                Row {
+                    TextButton(onClick = onMergeBack) { Text("返回") }
+                    TextButton(onClick = onDismiss) { Text("取消") }
                 }
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("取消") }
-        }
-    )
+        )
+    } else {
+        // 选项选择
+        AlertDialog(
+            onDismissRequest = onDismiss,
+            title = { Text("删除「${category.name}」") },
+            text = {
+                Column {
+                    if (hasChildren) {
+                        Text(
+                            text = "该分类下包含子分类，删除后将一并移除。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    Text("请选择删除方式：")
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // 选项 1：删除记录
+                    TextButton(
+                        onClick = onDeleteWithRecords,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(horizontalAlignment = Alignment.Start) {
+                            Text(
+                                "删除分类及所有关联记录",
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                            Text(
+                                text = "将同时删除该分类下的所有流水记录，不可恢复",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    // 选项 2：合并到其他分类
+                    TextButton(
+                        onClick = onMergeStart,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(horizontalAlignment = Alignment.Start) {
+                            Text("合并到其他分类", fontWeight = FontWeight.Medium)
+                            Text(
+                                text = "将流水记录迁移到另一个分类后，删除此分类",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = onDismiss) { Text("取消") }
+            }
+        )
+    }
 }
 
 /**
- * 批量删除确认弹窗。
- * 与单个删除结构相同，但提示文字针对批量操作。
+ * 批量删除确认弹窗（V1.2 简化：单选项）。
+ * 批量删除不支持合并，仅提供「删除分类及关联记录」选项。
  */
 @Composable
 private fun BatchDeleteDialog(
     count: Int,
     onDismiss: () -> Unit,
-    onDeleteKeepRecords: () -> Unit,
     onDeleteWithRecords: () -> Unit
 ) {
     AlertDialog(
@@ -675,47 +747,22 @@ private fun BatchDeleteDialog(
         title = { Text("批量删除 $count 个分类") },
         text = {
             Column {
-                Text("选中分类的子分类也将一并删除。", color = MaterialTheme.colorScheme.error)
-                Spacer(modifier = Modifier.height(12.dp))
-                Text("请选择删除方式：")
-                Spacer(modifier = Modifier.height(12.dp))
-
-                // 选项 1：保留记录
-                TextButton(
-                    onClick = onDeleteKeepRecords,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text("保留历史记录", fontWeight = FontWeight.Medium)
-                        Text(
-                            text = "仅删除分类定义，已存在的流水记录保留原分类名称",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                // 选项 2：删除记录
-                TextButton(
-                    onClick = onDeleteWithRecords,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(horizontalAlignment = Alignment.Start) {
-                        Text(
-                            "删除分类及所有关联记录",
-                            fontWeight = FontWeight.Medium,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Text(
-                            text = "将同时删除这些分类下的所有流水记录，不可恢复",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
+                Text(
+                    text = "选中分类的子分类及关联流水记录也将一并删除，不可恢复。",
+                    color = MaterialTheme.colorScheme.error
+                )
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            Button(
+                onClick = onDeleteWithRecords,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text("确认删除")
+            }
+        },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
         }

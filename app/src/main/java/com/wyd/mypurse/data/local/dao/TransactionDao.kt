@@ -362,6 +362,16 @@ interface TransactionDao {
     /** 检查指定模板在指定日期是否已有记录（防重复） */
     @Query("SELECT COUNT(*) FROM `transaction` WHERE recurring_template_id = :templateId AND date BETWEEN :dayStart AND :dayEnd")
     suspend fun countByTemplateAndDate(templateId: Long, dayStart: Long, dayEnd: Long): Int
+
+    // ========== V1.2 合并分类迁移 ==========
+
+    /** 将所有一级分类 ID 为 oldId 的流水更新为 newId */
+    @Query("UPDATE `transaction` SET category_l1_id = :newId WHERE category_l1_id = :oldId")
+    suspend fun updateCategoryL1Id(oldId: Long, newId: Long)
+
+    /** 将所有二级分类 ID 为 oldId 的流水更新为 newId */
+    @Query("UPDATE `transaction` SET category_l2_id = :newId WHERE category_l2_id = :oldId")
+    suspend fun updateCategoryL2Id(oldId: Long, newId: Long)
 }
 
 /**

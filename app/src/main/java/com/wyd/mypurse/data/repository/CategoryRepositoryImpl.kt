@@ -183,6 +183,42 @@ class CategoryRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun mergeCategoryAndDelete(sourceId: Long, targetId: Long) {
+        val source = categoryDefDao.getCategoryById(sourceId)
+            ?: throw IllegalArgumentException("源分类不存在")
+        val target = categoryDefDao.getCategoryById(targetId)
+            ?: throw IllegalArgumentException("目标分类不存在")
+
+        if (source.parentId == null) {
+            // 一级分类合并
+            // 1. 将该一级分类下的所有流水迁移到目标一级分类
+            transactionDao.updateCategoryL1Id(sourceId, targetId)
+            // 2. 处理源分类的二级分类：按名称匹配迁移到目标的二级分类下
+            val sourceSubs = categoryDefDao.getSubCategoriesOnce(sourceId)
+            val targetSubs = categoryDefDao.getSubCategoriesOnce(targetId)
+            for (sub in sourceSubs) {
+                val matchingTarget = targetSubs.find { it.name == sub.name }
+                if (matchingTarget != null) {
+                    // 同名二级：流水归入目标二级，删除源二级
+                    transactionDao.updateCategoryL2Id(sub.id, matchingTarget.id)
+                    categoryDefDao.deleteCategory(sub.id)
+                } else {
+                    // 不同名二级：将二级分类的 parentId 改为目标
+                    val newSortOrder = categoryDefDao.getMaxSortOrder(targetId) + 1
+                    categoryDefDao.updateCategory(
+                        sub.copy(parentId = targetId, sortOrder = newSortOrder)
+                    )
+                }
+            }
+            // 3. 删除源一级分类
+            categoryDefDao.deleteCategory(sourceId)
+        } else {
+            // 二级分类合并
+            transactionDao.updateCategoryL2Id(sourceId, targetId)
+            categoryDefDao.deleteCategory(sourceId)
+        }
+    }
+
     private fun toDomain(entity: CategoryDefEntity): Category = Category(
         id = entity.id,
         name = entity.name,

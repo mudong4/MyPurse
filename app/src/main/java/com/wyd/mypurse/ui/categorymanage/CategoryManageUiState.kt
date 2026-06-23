@@ -39,7 +39,11 @@ data class CategoryManageUiState(
 
 data class DeleteDialogState(
     val category: Category,
-    val hasChildren: Boolean = false
+    val hasChildren: Boolean = false,
+    /** V1.2 合并流程：step=0 显示选项, step=1 显示目标选择列表 */
+    val mergeStep: Int = 0,
+    /** 候选目标分类列表（与源分类同级的兼容分类） */
+    val mergeTargetCandidates: List<Category> = emptyList()
 )
 
 data class EditDialogState(

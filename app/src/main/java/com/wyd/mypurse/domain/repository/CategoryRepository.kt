@@ -64,4 +64,7 @@ interface CategoryRepository {
 
     /** 恢复默认分类（跳过已存在的） */
     suspend fun restoreDefaultCategories()
+
+    /** V1.2 合并分类：将源分类下的流水迁移到目标分类后删除源分类 */
+    suspend fun mergeCategoryAndDelete(sourceId: Long, targetId: Long)
 }
