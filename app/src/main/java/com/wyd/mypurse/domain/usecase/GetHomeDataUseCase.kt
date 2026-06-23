@@ -6,6 +6,9 @@ import com.wyd.mypurse.domain.model.PeriodSummary
 import com.wyd.mypurse.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onStart
 import java.math.BigDecimal
 import java.util.Calendar
 import javax.inject.Inject
@@ -39,29 +42,39 @@ class GetHomeDataUseCase @Inject constructor(
      * 获取首页组合数据流。余额、趋势、预算为 Flow 持续监听，其他数据为一次性加载。
      */
     operator fun invoke(): Flow<HomeSnapshot> {
-        val now = System.currentTimeMillis()
-        val cal = Calendar.getInstance()
-
         return combine(
             repository.getBalance(),
             repository.getRecentMonthsExpenseTrend(6),
-            repository.observeBudget()
+            repository.observeBudget().onStart { emit(null) }
         ) { balance, trend, budget ->
-            // 每次余额、趋势或预算变化时，重新拉取时间窗口汇总
-            val year = cal.get(Calendar.YEAR)
-            val month = cal.get(Calendar.MONTH) + 1
+            Triple(balance, trend, budget)
+        }.flatMapLatest { (balance, trend, budget) ->
+            flow {
+                val now = System.currentTimeMillis()
+                val cal = Calendar.getInstance()
+                val year = cal.get(Calendar.YEAR)
+                val month = cal.get(Calendar.MONTH) + 1
 
-            HomeSnapshot(
-                balance = balance,
-                today = repository.getDailySummary(now),
-                thisWeek = repository.getWeeklySummary(now),
-                thisMonth = repository.getMonthlySummary(year, month),
-                thisYear = repository.getYearlySummary(year),
-                trend = trend,
-                topCategories = repository.getTopCategoriesByMonth(year, month, 5),
-                budget = budget,
-                isLoading = false
-            )
+                val today = repository.getDailySummary(now)
+                val thisWeek = repository.getWeeklySummary(now)
+                val thisMonth = repository.getMonthlySummary(year, month)
+                val thisYear = repository.getYearlySummary(year)
+                val topCategories = repository.getTopCategoriesByMonth(year, month, 5)
+
+                emit(
+                    HomeSnapshot(
+                        balance = balance,
+                        today = today,
+                        thisWeek = thisWeek,
+                        thisMonth = thisMonth,
+                        thisYear = thisYear,
+                        trend = trend,
+                        topCategories = topCategories,
+                        budget = budget,
+                        isLoading = false
+                    )
+                )
+            }
         }
     }
 }
