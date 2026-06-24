@@ -87,12 +87,12 @@ interface TransactionRepository {
     // ========== 流水列表 ==========
 
     /**
-     * 按时间范围和可选分类筛选获取交易列表（Flow）。
+     * 按时间范围和可选一级分类 ID 筛选获取交易列表（Flow）。
      */
     fun getTransactionsByRange(
         rangeStart: Long,
         rangeEnd: Long,
-        categoryFilter: String?,
+        categoryL1Id: Long?,
         limit: Int,
         offset: Int
     ): Flow<List<Transaction>>

@@ -57,7 +57,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
+
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -92,7 +92,7 @@ import java.util.Locale
 @Composable
 fun TransactionListScreen(
     timeGranularity: String,
-    categoryFilter: String?,
+    categoryL1Id: Long?,
     timeRangeStart: Long?,
     timeRangeEnd: Long?,
     onNavigateBack: () -> Unit,
@@ -107,8 +107,8 @@ fun TransactionListScreen(
     var showSearchBar by remember { mutableStateOf(false) }
     var searchText by remember { mutableStateOf("") }
 
-    LaunchedEffect(timeGranularity, categoryFilter, timeRangeStart, timeRangeEnd) {
-        viewModel.initialize(timeGranularity, categoryFilter, timeRangeStart, timeRangeEnd)
+    LaunchedEffect(timeGranularity, categoryL1Id, timeRangeStart, timeRangeEnd) {
+        viewModel.initialize(timeGranularity, categoryL1Id, timeRangeStart, timeRangeEnd)
     }
 
     LaunchedEffect(uiState.errorMessage) {
@@ -116,18 +116,6 @@ fun TransactionListScreen(
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
         }
-    }
-
-    val shouldLoadMore by remember {
-        derivedStateOf {
-            val lastVisibleItem = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
-            val totalItems = listState.layoutInfo.totalItemsCount
-            lastVisibleItem >= totalItems - 3 && uiState.hasMore && !uiState.isLoading
-        }
-    }
-
-    LaunchedEffect(shouldLoadMore) {
-        if (shouldLoadMore) viewModel.loadMore()
     }
 
     Scaffold(
@@ -228,8 +216,7 @@ fun TransactionListScreen(
                         onToggleGroup = { key -> viewModel.toggleGroupExpanded(key) },
                         onTransactionClick = { onNavigateToEdit(it.id) },
                         onTransactionDelete = { showDeleteDialog = it },
-                        listState = listState,
-                        isLoadingMore = uiState.isLoading
+                        listState = listState
                     )
                 }
             }
@@ -493,8 +480,7 @@ private fun GroupedTransactionList(
     onToggleGroup: (String) -> Unit,
     onTransactionClick: (Transaction) -> Unit,
     onTransactionDelete: (Transaction) -> Unit,
-    listState: androidx.compose.foundation.lazy.LazyListState,
-    isLoadingMore: Boolean
+    listState: androidx.compose.foundation.lazy.LazyListState
 ) {
     // 分类模式或年/月/周视图：可折叠；日视图 TIME 模式：直接平铺
     val isFoldable = groupMode != GroupMode.TIME || granularity != TimeGranularity.DAY
@@ -563,18 +549,6 @@ private fun GroupedTransactionList(
             }
         }
 
-        if (isLoadingMore) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                }
-            }
-        }
     }
 }
 

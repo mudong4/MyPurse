@@ -28,15 +28,17 @@ class TransactionListViewModel @Inject constructor(
     val uiState: StateFlow<TransactionListUiState> = _uiState.asStateFlow()
 
     private var loadJob: Job? = null
-    private var currentOffset = 0
-    private val pageSize = 50
 
-    /** 非分页视图的最大加载量，替代 Int.MAX_VALUE 作为 limit 参数 */
-    private val maxLoadSize = 500
+    /** 各视图一次性加载上限：个人记账场景下，单一视图的数据量远不会超出这些值 */
+    private val dayViewLoadLimit = 500
+    private val weekViewLoadLimit = 1000
+    private val monthViewLoadLimit = 3000
+    private val categoryViewLoadLimit = 3000
+    private val yearViewLoadLimit = 10000
 
     fun initialize(
         granularity: String,
-        categoryFilter: String?,
+        categoryL1Id: Long?,
         timeRangeStart: Long?,
         timeRangeEnd: Long?
     ) {
@@ -62,6 +64,7 @@ class TransactionListViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 granularity = g,
+                categoryL1Id = categoryL1Id,
                 currentYear = targetYear,
                 currentMonth = targetMonth,
                 currentDay = targetDay,
@@ -91,7 +94,6 @@ class TransactionListViewModel @Inject constructor(
                 expandedGroups = emptySet()
             )
         }
-        currentOffset = 0
         loadData()
     }
 
@@ -104,10 +106,15 @@ class TransactionListViewModel @Inject constructor(
         _uiState.update {
             it.copy(
                 groupMode = mode,
-                expandedGroups = emptySet()
+                // 切换到按时间分组时，清除外部传入的分类过滤（统计页跳转过来的分类 ID）
+                categoryL1Id = if (mode == GroupMode.TIME) null else it.categoryL1Id,
+                expandedGroups = emptySet(),
+                // 清空旧数据防止过渡期 key 冲突：
+                // 分类模式的分组 rangeStart 全部相同（共享时间范围），切换为 TIME 后
+                // LazyColumn key 改用 rangeStart 计算，会导致重复 key 崩溃
+                timeGroups = emptyList()
             )
         }
-        currentOffset = 0
         loadData()
     }
 
@@ -129,7 +136,6 @@ class TransactionListViewModel @Inject constructor(
 
     fun setSearchKeyword(keyword: String) {
         _uiState.update { it.copy(searchKeyword = keyword) }
-        currentOffset = 0
         if (keyword.isBlank()) {
             loadData()
         } else {
@@ -171,7 +177,6 @@ class TransactionListViewModel @Inject constructor(
                 expandedGroups = emptySet()
             )
         }
-        currentOffset = 0
         loadData()
     }
 
@@ -188,7 +193,6 @@ class TransactionListViewModel @Inject constructor(
                 showDatePicker = false
             )
         }
-        currentOffset = 0
         loadData()
     }
 
@@ -201,7 +205,6 @@ class TransactionListViewModel @Inject constructor(
                 expandedGroups = emptySet()
             )
         }
-        currentOffset = 0
         loadData()
     }
 
@@ -213,7 +216,6 @@ class TransactionListViewModel @Inject constructor(
                 expandedGroups = emptySet()
             )
         }
-        currentOffset = 0
         loadData()
     }
 
@@ -235,24 +237,12 @@ class TransactionListViewModel @Inject constructor(
         _uiState.update { it.copy(showDatePicker = false) }
     }
 
-    /** 非日视图分页时累积的交易列表 */
-    private val accumulatedList = mutableListOf<Transaction>()
-
-    // ========== 分页 ==========
-
-    fun loadMore() {
-        val state = _uiState.value
-        if (!state.hasMore || state.isLoading) return
-        loadData(append = true)
-    }
-
     // ========== 删除 ==========
 
     fun deleteTransaction(transaction: Transaction) {
         viewModelScope.launch {
             try {
                 transactionRepository.deleteTransaction(transaction.id)
-                currentOffset = 0
                 loadData()
             } catch (e: Exception) {
                 _uiState.update { it.copy(errorMessage = e.message ?: "删除失败") }
@@ -266,7 +256,7 @@ class TransactionListViewModel @Inject constructor(
 
     // ========== 内部方法 ==========
 
-    private fun loadData(append: Boolean = false) {
+    private fun loadData() {
         val state = _uiState.value
         // 取消前一个加载任务（旧 Job 的 CancellationException 不对外暴露）
         loadJob?.let { job ->
@@ -275,11 +265,6 @@ class TransactionListViewModel @Inject constructor(
         }
         loadJob = viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
-
-            if (!append) {
-                currentOffset = 0
-                accumulatedList.clear()
-            }
 
             try {
                 val (rangeStart, rangeEnd) = calculateTimeRange(state)
@@ -290,13 +275,13 @@ class TransactionListViewModel @Inject constructor(
                     }
                     state.groupMode == GroupMode.CATEGORY_L1 ||
                     state.groupMode == GroupMode.CATEGORY_L2 -> {
-                        loadCategoryView(state, rangeStart, rangeEnd, append)
+                        loadCategoryView(state, rangeStart, rangeEnd)
                     }
                     else -> when (state.granularity) {
-                        TimeGranularity.YEAR -> loadYearView(state, rangeStart, rangeEnd, append)
-                        TimeGranularity.MONTH -> loadMonthView(state, rangeStart, rangeEnd, append)
-                        TimeGranularity.WEEK -> loadWeekView(state, rangeStart, rangeEnd, append)
-                        TimeGranularity.DAY -> loadDayView(state, rangeStart, rangeEnd, append)
+                        TimeGranularity.YEAR -> loadYearView(state, rangeStart, rangeEnd)
+                        TimeGranularity.MONTH -> loadMonthView(state, rangeStart, rangeEnd)
+                        TimeGranularity.WEEK -> loadWeekView(state, rangeStart, rangeEnd)
+                        TimeGranularity.DAY -> loadDayView(state, rangeStart, rangeEnd)
                     }
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
@@ -315,23 +300,20 @@ class TransactionListViewModel @Inject constructor(
     private suspend fun loadCategoryView(
         state: TransactionListUiState,
         rangeStart: Long,
-        rangeEnd: Long,
-        append: Boolean
+        rangeEnd: Long
     ) {
         val flow = transactionRepository.getTransactionsByRange(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
-            categoryFilter = null,
-            limit = pageSize,
-            offset = currentOffset
+            categoryL1Id = state.categoryL1Id,
+            limit = categoryViewLoadLimit,
+            offset = 0
         )
-        if (!append) accumulatedList.clear()
         flow.catch { e ->
             _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "加载失败") }
         }.collect { transactions ->
-            accumulatedList.addAll(transactions)
             val groups = if (state.groupMode == GroupMode.CATEGORY_L2) {
-                accumulatedList
+                transactions
                     .groupBy { tx ->
                         val l1 = tx.categoryL1
                         val l2 = tx.categoryL2 ?: "其他"
@@ -350,7 +332,7 @@ class TransactionListViewModel @Inject constructor(
                     }
                     .sortedByDescending { it.totalExpense }
             } else {
-                accumulatedList
+                transactions
                     .groupBy { it.categoryL1 }
                     .map { (catName, list) ->
                         val sorted = list.sortedByDescending { it.date }
@@ -368,11 +350,9 @@ class TransactionListViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    timeGroups = groups,
-                    hasMore = transactions.size == pageSize
+                    timeGroups = groups
                 )
             }
-            currentOffset += transactions.size
         }
     }
 
@@ -381,22 +361,20 @@ class TransactionListViewModel @Inject constructor(
     private suspend fun loadYearView(
         state: TransactionListUiState,
         rangeStart: Long,
-        rangeEnd: Long,
-        append: Boolean
+        rangeEnd: Long
     ) {
+        // 年视图一次性加载全年数据，按月分组展示 12 个月摘要
         val flow = transactionRepository.getTransactionsByRange(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
-            categoryFilter = null,
-            limit = pageSize,
-            offset = currentOffset
+            categoryL1Id = state.categoryL1Id,
+            limit = yearViewLoadLimit,
+            offset = 0
         )
-        if (!append) accumulatedList.clear()
         flow.catch { e ->
             _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "加载失败") }
         }.collect { transactions ->
-            accumulatedList.addAll(transactions)
-            val groups = accumulatedList
+            val groups = transactions
                 .groupBy { tx ->
                     val cal = Calendar.getInstance().apply { timeInMillis = tx.date }
                     cal.get(Calendar.MONTH) + 1
@@ -421,33 +399,28 @@ class TransactionListViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    timeGroups = groups,
-                    hasMore = transactions.size == pageSize
+                    timeGroups = groups
                 )
             }
-            currentOffset += transactions.size
         }
     }
 
     private suspend fun loadMonthView(
         state: TransactionListUiState,
         rangeStart: Long,
-        rangeEnd: Long,
-        append: Boolean
+        rangeEnd: Long
     ) {
         val flow = transactionRepository.getTransactionsByRange(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
-            categoryFilter = null,
-            limit = pageSize,
-            offset = currentOffset
+            categoryL1Id = state.categoryL1Id,
+            limit = monthViewLoadLimit,
+            offset = 0
         )
-        if (!append) accumulatedList.clear()
         flow.catch { e ->
             _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "加载失败") }
         }.collect { transactions ->
-            accumulatedList.addAll(transactions)
-            val groups = accumulatedList
+            val groups = transactions
                 .groupBy { tx ->
                     val cal = Calendar.getInstance().apply { timeInMillis = tx.date }
                     val dow = cal.get(Calendar.DAY_OF_WEEK)
@@ -477,34 +450,29 @@ class TransactionListViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    timeGroups = groups,
-                    hasMore = transactions.size == pageSize
+                    timeGroups = groups
                 )
             }
-            currentOffset += transactions.size
         }
     }
 
     private suspend fun loadWeekView(
         state: TransactionListUiState,
         rangeStart: Long,
-        rangeEnd: Long,
-        append: Boolean
+        rangeEnd: Long
     ) {
         val flow = transactionRepository.getTransactionsByRange(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
-            categoryFilter = null,
-            limit = pageSize,
-            offset = currentOffset
+            categoryL1Id = state.categoryL1Id,
+            limit = weekViewLoadLimit,
+            offset = 0
         )
-        if (!append) accumulatedList.clear()
         flow.catch { e ->
             _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "加载失败") }
         }.collect { transactions ->
-            accumulatedList.addAll(transactions)
             val dayOfWeekNames = listOf("", "周日", "周一", "周二", "周三", "周四", "周五", "周六")
-            val groups = accumulatedList
+            val groups = transactions
                 .groupBy { tx ->
                     val cal = Calendar.getInstance().apply { timeInMillis = tx.date }
                     getDayStart(cal)
@@ -527,26 +495,23 @@ class TransactionListViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    timeGroups = groups,
-                    hasMore = transactions.size == pageSize
+                    timeGroups = groups
                 )
             }
-            currentOffset += transactions.size
         }
     }
 
     private suspend fun loadDayView(
         state: TransactionListUiState,
         rangeStart: Long,
-        rangeEnd: Long,
-        append: Boolean
+        rangeEnd: Long
     ) {
         val flow = transactionRepository.getTransactionsByRange(
             rangeStart = rangeStart,
             rangeEnd = rangeEnd,
-            categoryFilter = null,
-            limit = pageSize,
-            offset = currentOffset
+            categoryL1Id = state.categoryL1Id,
+            limit = dayViewLoadLimit,
+            offset = 0
         )
 
         flow.catch { e ->
@@ -556,11 +521,9 @@ class TransactionListViewModel @Inject constructor(
             _uiState.update {
                 it.copy(
                     isLoading = false,
-                    timeGroups = if (append) it.timeGroups + groups else groups,
-                    hasMore = transactions.size == pageSize
+                    timeGroups = groups
                 )
             }
-            currentOffset += transactions.size
         }
     }
 
@@ -577,8 +540,8 @@ class TransactionListViewModel @Inject constructor(
             try {
                 transactionRepository.searchTransactions(
                     keyword = keyword,
-                    limit = pageSize,
-                    offset = currentOffset
+                    limit = categoryViewLoadLimit,
+                    offset = 0
                 ).catch { e ->
                     _uiState.update { it.copy(isLoading = false, errorMessage = e.message ?: "搜索失败") }
                 }.collect { transactions ->
@@ -587,11 +550,9 @@ class TransactionListViewModel @Inject constructor(
                         it.copy(
                             isLoading = false,
                             isSearching = true,
-                            timeGroups = groups,
-                            hasMore = transactions.size == pageSize
+                            timeGroups = groups
                         )
                     }
-                    currentOffset += transactions.size
                 }
             } catch (e: kotlinx.coroutines.CancellationException) {
                 throw e

@@ -63,19 +63,20 @@ interface TransactionDao {
     ): Flow<List<TransactionEntity>>
 
     /**
-     * 按时间范围 + 分类筛选获取交易列表。
+     * 按时间范围 + 一级分类 ID 筛选获取交易列表。
+     * 使用 category_l1_id 过滤，不依赖快照名，分类重命名后旧交易仍能正确匹配。
      */
     @Query("""
         SELECT * FROM `transaction`
         WHERE date BETWEEN :rangeStart AND :rangeEnd
-          AND category_l1 = :categoryFilter
+          AND category_l1_id = :categoryL1Id
         ORDER BY date DESC, create_time DESC
         LIMIT :limit OFFSET :offset
     """)
-    fun getTransactionsByRangeAndCategory(
+    fun getTransactionsByRangeAndCategoryL1Id(
         rangeStart: Long,
         rangeEnd: Long,
-        categoryFilter: String,
+        categoryL1Id: Long,
         limit: Int,
         offset: Int
     ): Flow<List<TransactionEntity>>
@@ -177,16 +178,17 @@ interface TransactionDao {
 
     /**
      * 指定月份按一级分类汇总的支出排名。
-     * JOIN category_def 获取分类颜色和实时名称（COALESCE：分类已删除时 fallback 快照名）。
+     * JOIN category_def 获取分类颜色和实时名称。
+     * 业务保证 category_l1_id 不会指向已删除的分类（删除分类必级联删/迁移流水）。
      */
     @Query("""
         SELECT 
             t.category_l1_id AS categoryL1Id,
-            COALESCE(cd.name, t.category_l1) AS categoryL1,
+            cd.name AS categoryL1,
             SUM(t.amount) AS total,
-            COALESCE(cd.color, 0) AS color
+            cd.color AS color
         FROM `transaction` t
-        LEFT JOIN category_def cd ON t.category_l1_id = cd.id
+        JOIN category_def cd ON t.category_l1_id = cd.id
         WHERE t.flow_type = '支出' 
           AND CAST(strftime('%Y', t.date / 1000, 'unixepoch') AS INTEGER) = :year
           AND CAST(strftime('%m', t.date / 1000, 'unixepoch') AS INTEGER) = :month
@@ -200,16 +202,17 @@ interface TransactionDao {
 
     /**
      * 按时间范围和流水类型汇总各一级分类金额（构成分析）。
-     * JOIN category_def 获取分类颜色和实时名称（COALESCE：分类已删除时 fallback 快照名）。
+     * JOIN category_def 获取分类颜色和实时名称。
+     * 业务保证 category_l1_id 不会指向已删除的分类（删除分类必级联删/迁移流水）。
      */
     @Query("""
         SELECT 
             t.category_l1_id AS categoryL1Id,
-            COALESCE(cd.name, t.category_l1) AS categoryL1,
+            cd.name AS categoryL1,
             SUM(t.amount) AS total,
-            COALESCE(cd.color, 0) AS color
+            cd.color AS color
         FROM `transaction` t
-        LEFT JOIN category_def cd ON t.category_l1_id = cd.id
+        JOIN category_def cd ON t.category_l1_id = cd.id
         WHERE t.date BETWEEN :rangeStart AND :rangeEnd
           AND (:flowType IS NULL OR t.flow_type = :flowType)
         GROUP BY t.category_l1_id
@@ -224,14 +227,15 @@ interface TransactionDao {
     /**
      * 按时间范围和一级分类汇总二级分类金额（构成分析 - 展开二级）。
      * 二级分类颜色取父级分类（category_def）的颜色，名称取实时名。
+     * 业务保证 category_l2_id 不会指向已删除的分类（删除分类必级联删/迁移流水）。
      */
     @Query("""
         SELECT 
-            COALESCE(cd.name, t.category_l2) AS categoryL1,
+            cd.name AS categoryL1,
             SUM(t.amount) AS total,
-            COALESCE(cd.color, 0) AS color
+            cd.color AS color
         FROM `transaction` t
-        LEFT JOIN category_def cd ON t.category_l2_id = cd.id
+        JOIN category_def cd ON t.category_l2_id = cd.id
         WHERE t.date BETWEEN :rangeStart AND :rangeEnd
           AND (:flowType IS NULL OR t.flow_type = :flowType)
           AND t.category_l1_id = :categoryL1Id
@@ -372,6 +376,14 @@ interface TransactionDao {
     /** 将所有二级分类 ID 为 oldId 的流水更新为 newId */
     @Query("UPDATE `transaction` SET category_l2_id = :newId WHERE category_l2_id = :oldId")
     suspend fun updateCategoryL2Id(oldId: Long, newId: Long)
+
+    /** 批量更新一级分类快照名（分类改名/合并时同步） */
+    @Query("UPDATE `transaction` SET category_l1 = :newName WHERE category_l1_id = :categoryId")
+    suspend fun updateCategoryL1Snapshot(categoryId: Long, newName: String)
+
+    /** 批量更新二级分类快照名（分类改名/合并时同步） */
+    @Query("UPDATE `transaction` SET category_l2 = :newName WHERE category_l2_id = :categoryId")
+    suspend fun updateCategoryL2Snapshot(categoryId: Long, newName: String)
 }
 
 /**

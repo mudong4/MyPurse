@@ -16,7 +16,6 @@ import com.wyd.mypurse.domain.model.TrendPoint
 import com.wyd.mypurse.domain.repository.TransactionInsertSpec
 import com.wyd.mypurse.domain.repository.TransactionRepository
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import java.math.BigDecimal
 import java.util.Calendar
@@ -35,10 +34,6 @@ class TransactionRepositoryImpl @Inject constructor(
     private val recurringTemplateDao: RecurringTemplateDao,
     private val databaseInitializer: DatabaseInitializer
 ) : TransactionRepository {
-
-    /** 分类 ID → 当前名称的缓存（Flow），供 flow 列表映射时反查实时名 */
-    private val categoryNameById: Flow<Map<Long, String>> = categoryDefDao.getAllCategories()
-        .map { categories -> categories.associate { it.id to it.name } }
 
     override fun getBalance(): Flow<BigDecimal> =
         transactionDao.getBalance()
@@ -187,21 +182,18 @@ class TransactionRepositoryImpl @Inject constructor(
     override fun getTransactionsByRange(
         rangeStart: Long,
         rangeEnd: Long,
-        categoryFilter: String?,
+        categoryL1Id: Long?,
         limit: Int,
         offset: Int
     ): Flow<List<Transaction>> {
-        val flow = if (categoryFilter != null) {
-            transactionDao.getTransactionsByRangeAndCategory(
-                rangeStart, rangeEnd, categoryFilter, limit, offset
-            )
+        return if (categoryL1Id != null) {
+            transactionDao.getTransactionsByRangeAndCategoryL1Id(
+                rangeStart, rangeEnd, categoryL1Id, limit, offset
+            ).map { list -> list.map { it.toDomain() } }
         } else {
             transactionDao.getTransactionsByRange(
                 rangeStart, rangeEnd, limit, offset
-            )
-        }
-        return flow.combine(categoryNameById) { list, nameMap ->
-            list.map { it.toDomain(nameMap) }
+            ).map { list -> list.map { it.toDomain() } }
         }
     }
 
@@ -211,9 +203,7 @@ class TransactionRepositoryImpl @Inject constructor(
         offset: Int
     ): Flow<List<Transaction>> {
         return transactionDao.searchTransactions(keyword, limit, offset)
-            .combine(categoryNameById) { list, nameMap ->
-                list.map { it.toDomain(nameMap) }
-            }
+            .map { list -> list.map { it.toDomain() } }
     }
 
     override suspend fun getTransactionById(id: Long): Transaction? {
@@ -325,8 +315,8 @@ class TransactionRepositoryImpl @Inject constructor(
 // ========== Entity ↔ Domain 映射 ==========
 
 /**
- * 映射为 Domain 模型，使用快照名（不解析实时名）。
- * 用于 CSV 导出、交易详情编辑初始值等场景。
+ * 映射为 Domain 模型，直接使用快照列。
+ * 快照列由 CategoryRepository 在改名/合并时同步更新，保证与 category_def 一致。
  */
 private fun TransactionEntity.toDomain() = Transaction(
     id = id,
@@ -335,25 +325,6 @@ private fun TransactionEntity.toDomain() = Transaction(
     categoryL2Id = categoryL2Id,
     categoryL1 = categoryL1,
     categoryL2 = categoryL2,
-    amount = amount,
-    note = note,
-    date = date,
-    createTime = createTime,
-    ledgerId = ledgerId,
-    recurringTemplateId = recurringTemplateId
-)
-
-/**
- * 映射为 Domain 模型，通过 [nameMap] 反查分类实时名。
- * 分类仍存在 → 使用当前名；分类已删除 → fallback 快照名。
- */
-private fun TransactionEntity.toDomain(nameMap: Map<Long, String>) = Transaction(
-    id = id,
-    flowType = flowType,
-    categoryL1Id = categoryL1Id,
-    categoryL2Id = categoryL2Id,
-    categoryL1 = categoryL1Id?.let { nameMap[it] } ?: categoryL1,
-    categoryL2 = categoryL2Id?.let { nameMap[it] } ?: categoryL2,
     amount = amount,
     note = note,
     date = date,

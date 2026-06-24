@@ -78,6 +78,12 @@ class CategoryRepositoryImpl @Inject constructor(
     override suspend fun updateCategory(id: Long, name: String) {
         val existing = categoryDefDao.getCategoryById(id) ?: return
         categoryDefDao.updateCategory(existing.copy(name = name))
+        // 同步更新流水快照，保证快照始终与 category_def 一致
+        if (existing.parentId == null) {
+            transactionDao.updateCategoryL1Snapshot(id, name)
+        } else {
+            transactionDao.updateCategoryL2Snapshot(id, name)
+        }
     }
 
     override suspend fun updateCategoryColor(id: Long, color: Long) {
@@ -193,6 +199,7 @@ class CategoryRepositoryImpl @Inject constructor(
             // 一级分类合并
             // 1. 将该一级分类下的所有流水迁移到目标一级分类
             transactionDao.updateCategoryL1Id(sourceId, targetId)
+            transactionDao.updateCategoryL1Snapshot(targetId, target.name)
             // 2. 处理源分类的二级分类：按名称匹配迁移到目标的二级分类下
             val sourceSubs = categoryDefDao.getSubCategoriesOnce(sourceId)
             val targetSubs = categoryDefDao.getSubCategoriesOnce(targetId)
@@ -201,6 +208,7 @@ class CategoryRepositoryImpl @Inject constructor(
                 if (matchingTarget != null) {
                     // 同名二级：流水归入目标二级，删除源二级
                     transactionDao.updateCategoryL2Id(sub.id, matchingTarget.id)
+                    transactionDao.updateCategoryL2Snapshot(matchingTarget.id, matchingTarget.name)
                     categoryDefDao.deleteCategory(sub.id)
                 } else {
                     // 不同名二级：将二级分类的 parentId 改为目标
@@ -215,6 +223,7 @@ class CategoryRepositoryImpl @Inject constructor(
         } else {
             // 二级分类合并
             transactionDao.updateCategoryL2Id(sourceId, targetId)
+            transactionDao.updateCategoryL2Snapshot(targetId, target.name)
             categoryDefDao.deleteCategory(sourceId)
         }
     }

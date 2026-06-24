@@ -48,10 +48,15 @@ class StatisticsViewModel @Inject constructor(
                 timestamp = current.currentTimestamp
             )
             val budget = budgetDao.getBudget()?.amount
+            val (rangeStart, rangeEnd) = getStatisticsUseCase.calculateTimeRange(
+                current.granularity, current.currentTimestamp
+            )
             _uiState.update { prev ->
                 prev.copy(
                     granularity = snapshot.granularity,
                     timeLabel = snapshot.timeLabel,
+                    timeRangeStart = rangeStart,
+                    timeRangeEnd = rangeEnd,
                     totalExpense = snapshot.totalExpense,
                     totalIncome = snapshot.totalIncome,
                     composition = snapshot.composition,

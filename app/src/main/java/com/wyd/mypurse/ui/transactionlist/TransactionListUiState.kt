@@ -58,6 +58,7 @@ data class TransactionListUiState(
     val granularity: TimeGranularity = TimeGranularity.MONTH,
     val groupMode: GroupMode = GroupMode.TIME,
     val searchKeyword: String = "",
+    val categoryL1Id: Long? = null,
 
     // 当前时间窗口
     val currentYear: Int = java.util.Calendar.getInstance().get(java.util.Calendar.YEAR),
@@ -76,8 +77,7 @@ data class TransactionListUiState(
     // 折叠状态：存储已展开的 group 的 rangeStart 字符串
     val expandedGroups: Set<String> = emptySet(),
 
-    // 是否有更多数据（仅日视图 TIME 模式分页使用）
-    val hasMore: Boolean = false,
+
     // 是否在搜索模式
     val isSearching: Boolean = false,
 

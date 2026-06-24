@@ -32,7 +32,7 @@ sealed class Route {
     @Serializable
     data class TransactionList(
         val timeGranularity: String = "month",
-        val categoryFilter: String? = null,
+        val categoryL1Id: Long? = null,
         val timeRangeStart: Long? = null,
         val timeRangeEnd: Long? = null
     ) : Route()

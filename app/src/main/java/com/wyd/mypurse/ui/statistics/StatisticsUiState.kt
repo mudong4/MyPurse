@@ -13,6 +13,10 @@ data class StatisticsUiState(
     val currentTimestamp: Long = System.currentTimeMillis(),
     val timeLabel: String = "",
 
+    // 当前视图的时间范围（毫秒），供跳转流水列表时传递时间上下文
+    val timeRangeStart: Long = 0L,
+    val timeRangeEnd: Long = 0L,
+
     // 概览
     val totalExpense: BigDecimal = BigDecimal.ZERO,
     val totalIncome: BigDecimal = BigDecimal.ZERO,

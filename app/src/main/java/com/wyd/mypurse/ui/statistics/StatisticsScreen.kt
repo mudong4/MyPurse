@@ -114,7 +114,7 @@ private val dfPct = DecimalFormat("#.#")
 @Composable
 fun StatisticsScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToTransactionList: (String, String) -> Unit,
+    onNavigateToTransactionList: (String, Long?, Long, Long) -> Unit,
     viewModel: StatisticsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -191,7 +191,15 @@ fun StatisticsScreen(
                         isSubLoading = uiState.isSubLoading,
                         onToggleType = { viewModel.toggleCompositionType() },
                         onToggleSubCategory = { viewModel.toggleSubCategory(it) },
-                        onToggleChartMode = { viewModel.toggleCompositionChartMode() }
+                        onToggleChartMode = { viewModel.toggleCompositionChartMode() },
+                        onNavigateToTransactionList = { categoryL1Id ->
+                            onNavigateToTransactionList(
+                                "month",
+                                categoryL1Id,
+                                uiState.timeRangeStart,
+                                uiState.timeRangeEnd
+                            )
+                        }
                     )
 
                     PageMode.TREND -> TrendPage(
@@ -222,7 +230,8 @@ private fun CategoryPage(
     isSubLoading: Boolean,
     onToggleType: () -> Unit,
     onToggleSubCategory: (Long) -> Unit,
-    onToggleChartMode: () -> Unit
+    onToggleChartMode: () -> Unit,
+    onNavigateToTransactionList: (Long?) -> Unit
 ) {
     // 概览卡片
     OverviewCard(totalExpense = totalExpense, totalIncome = totalIncome)
@@ -320,7 +329,8 @@ private fun CategoryPage(
                         expandedCategoryId = expandedCategoryId,
                         subComposition = subComposition,
                         isSubLoading = isSubLoading,
-                        onToggleSubCategory = onToggleSubCategory
+                        onToggleSubCategory = onToggleSubCategory,
+                        onNavigateToTransactionList = onNavigateToTransactionList
                     )
                     else -> {}
                 }
@@ -524,7 +534,8 @@ private fun CompositionBarList(
     expandedCategoryId: Long?,
     subComposition: List<CategoryAmount>,
     isSubLoading: Boolean,
-    onToggleSubCategory: (Long) -> Unit
+    onToggleSubCategory: (Long) -> Unit,
+    onNavigateToTransactionList: (Long?) -> Unit
 ) {
     val chartPalette = LocalChartColorScheme.current.chartPalette
     items.forEachIndexed { index, item ->
@@ -582,7 +593,10 @@ private fun CompositionBarList(
                             sub.total.multiply(BigDecimal("100")).divide(parentTotal, 1, RoundingMode.HALF_UP)
                         } else BigDecimal.ZERO
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onNavigateToTransactionList(expandedCategoryId) }
+                                .padding(vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(

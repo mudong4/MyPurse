@@ -134,11 +134,13 @@ fun MyPurseNavHost(
             composable<Route.Statistics> {
                 StatisticsScreen(
                     onNavigateBack = { navController.popBackStack() },
-                    onNavigateToTransactionList = { granularity, category ->
+                    onNavigateToTransactionList = { granularity, categoryL1Id, timeStart, timeEnd ->
                         navController.navigate(
                             Route.TransactionList(
                                 timeGranularity = granularity,
-                                categoryFilter = category
+                                categoryL1Id = categoryL1Id,
+                                timeRangeStart = timeStart,
+                                timeRangeEnd = timeEnd
                             )
                         )
                     }
@@ -182,7 +184,7 @@ fun MyPurseNavHost(
                 val route = backStackEntry.toRoute<Route.TransactionList>()
                 TransactionListScreen(
                     timeGranularity = route.timeGranularity,
-                    categoryFilter = route.categoryFilter,
+                    categoryL1Id = route.categoryL1Id,
                     timeRangeStart = route.timeRangeStart,
                     timeRangeEnd = route.timeRangeEnd,
                     onNavigateBack = { navController.popBackStack() },

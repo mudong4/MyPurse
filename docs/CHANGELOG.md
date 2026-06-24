@@ -1,5 +1,26 @@
 # MyPurse 更新日志
 
+## V1.2（2026-06-24）— 分类管理增强 + 流水分页简化
+
+### 分类管理增强
+- 分类改名同步快照（方案B）：改名或合并分类后，自动批量更新历史流水中的分类快照列，确保全页面显示一致的新名
+- 合并分类迁移：删除一级分类时可选"合并到其他分类"，自动迁移所有关联流水 + 子分类归入目标，删除源分类
+- 方案A→方案B重构：从"读时 JOIN 反查"改为"写时同步快照"，删除 `categoryNameById`/`combine`/`toDomain(nameMap)` 等冗余逻辑，数据一致性更好
+
+### 流水列表
+- 移除分页：删除 `currentOffset`/`pageSize`/`accumulatedList`/`loadMore()` 及底部加载 spinner，所有视图改为一次性全量加载
+- 各视图独立上限：日 500 / 周 1000 / 月 3000 / 分类 3000 / 年 10000。个人记账单一视图数据量远不超出这些值
+
+### 数据层
+- DAO 聚合查询从 `LEFT JOIN + COALESCE` 改为 `JOIN + cd.name`，消除 SQLite 非严格模式下的不确定性
+- DAO 新增 `updateCategoryL1Snapshot` / `updateCategoryL2Snapshot` 批量快照更新方法
+
+### Bug 修复
+- 修复年视图部分月份不显示（`hasMore` 变量用错）
+- 修复分类模式→时间模式切换闪退（`setGroupMode()` 未清除 `categoryL1Id`）
+
+---
+
 ## V1.0.1（2026-06-21）— 体验优化
 
 ### 分类管理
