@@ -262,7 +262,7 @@ fun SettingsScreen(
             SettingsItem(
                 icon = Icons.Filled.Info,
                 title = "关于 MyPurse",
-                subtitle = "版本 1.0.0 · 开源许可",
+                subtitle = "版本 ${com.wyd.mypurse.BuildConfig.VERSION_NAME} · 开源许可",
                 onClick = { debounce { onNavigateToAbout() } }
             )
             HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))

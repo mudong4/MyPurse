@@ -86,7 +86,7 @@ fun AboutScreen(
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "版本 1.0.0",
+                        text = "版本 ${com.wyd.mypurse.BuildConfig.VERSION_NAME}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary
                     )
