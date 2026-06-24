@@ -25,6 +25,9 @@ app/release/
 *.jks
 *.keystore
 
+# --- Release artifacts (binary, large, only for local archive) ---
+releases/
+
 # --- OS ---
 .DS_Store
 Thumbs.db

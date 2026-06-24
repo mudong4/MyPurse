@@ -63,8 +63,23 @@ git commit -m "type(scope): 简短描述"
 
 列出本次修改了哪些文档文件（6 类项目文件 + 3 份规范文件），无改动也要明确说"本次无文档改动"。
 
+### 10. Release 产物归档（如本次有打包）
+
+**前置检查：打包前必须确认 `app/build.gradle.kts` 中 versionCode 和 versionName 已升级。**
+
+如果本次会话执行了 release 打包（或用户说"打包""构建 APK"），检查并提醒：
+
+- [ ] `versionCode` 已递增？（当前 V1.2 → versionCode=4，下次应为 5）
+- [ ] `versionName` 已更新为对应版本号？（如 "1.2"）
+- [ ] APK 已复制到 `releases/MyPurse-vX.X-release.apk`？
+- [ ] mapping 已复制到 `releases/MyPurse-vX.X-mapping.txt`？（源：`app/build/outputs/mapping/release/mapping.txt`）
+- [ ] 旧版 `app-release.apk`（无版本号命名）是否该清理？
+
+如果用户已自行打包但未做以上步骤，必须主动提醒并代为执行。
+
 ## 注意事项
 
 - 第 1 条（编译）必须在第 2-6 条之前完成
 - 第 7-9 条是 Git 收尾，与 2-6 条同等重要
+- 第 10 条（Release 归档）仅在打包后触发，不可省略
 - 完整规范细节见 `references/compliance-checklist.md`

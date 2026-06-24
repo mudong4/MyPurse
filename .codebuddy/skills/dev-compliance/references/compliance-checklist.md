@@ -15,7 +15,7 @@
 | 需求规格（V1.0 封版） | `docs/2-需求规格/requirements.md` |
 | 需求规格（V1.x 迭代） | `docs/2-需求规格/requirements-v1x.md` |
 | 项目介绍 | `docs/1-项目概览/项目介绍.md` |
-| CHANGELOG | `CHANGELOG.md` |
+| CHANGELOG | `docs/CHANGELOG.md` |
 
 ## 9 条收尾检查
 
@@ -61,6 +61,14 @@ git push
 ### ☐ 9. 告知文档改动
 列出本次修改了哪些文档（无改动也需说明"本次无文档改动"）
 
+### ☐ 10. Release 产物归档（如打包）
+- [ ] `versionCode` 已递增？（`app/build.gradle.kts`）
+- [ ] `versionName` 已更新？
+- [ ] APK → `releases/MyPurse-vX.X-release.apk`
+- [ ] mapping → `releases/MyPurse-vX.X-mapping.txt`（源：`app/build/outputs/mapping/release/mapping.txt`）
+- [ ] 清理旧版无版本号命名的 APK
+> 不升 versionCode：覆盖安装失败、Play Store 拒收。不存 mapping：崩溃日志无法反混淆。
+
 ## 常见遗漏场景
 
 | 遗漏项 | 高频场景 |
@@ -69,3 +77,4 @@ git push
 | 第 3 条（问题记录） | 修了 Bug 但没记录 |
 | 第 6 条（临时文件） | 编译排查后忘删 build_output.txt |
 | 第 8 条（告知 hash） | commit 了但没告诉用户 |
+| 第 10 条（mapping 归档） | 打包后忘保存 mapping.txt，崩溃日志无法反混淆 |
