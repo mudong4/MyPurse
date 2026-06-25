@@ -20,6 +20,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,6 +38,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -81,6 +84,7 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val debounce = rememberDebounce()
+    var isAmountHidden by remember { mutableStateOf(true) }
 
     Scaffold(
         topBar = {
@@ -138,8 +142,10 @@ fun HomeScreen(
                 // 1. 概览卡片（当前结余）
                 BalanceCard(
                     balance = uiState.balance,
-                    totalIncome = uiState.thisMonth.income,
-                    totalExpense = uiState.thisMonth.expense,
+                    globalIncome = uiState.globalIncome,
+                    globalExpense = uiState.globalExpense,
+                    isAmountHidden = isAmountHidden,
+                    onToggleVisibility = { isAmountHidden = !isAmountHidden },
                     onClick = { debounce { onNavigateToTransactionList("month") } }
                 )
 
@@ -187,8 +193,10 @@ fun HomeScreen(
 @Composable
 private fun BalanceCard(
     balance: BigDecimal,
-    totalIncome: BigDecimal,
-    totalExpense: BigDecimal,
+    globalIncome: BigDecimal,
+    globalExpense: BigDecimal,
+    isAmountHidden: Boolean,
+    onToggleVisibility: () -> Unit,
     onClick: () -> Unit
 ) {
     val isNegative = balance < BigDecimal.ZERO
@@ -201,53 +209,68 @@ private fun BalanceCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
         shape = RoundedCornerShape(16.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                text = "当前结余",
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = formatMoney(balance, withSign = false),
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 32.sp
-                ),
-                color = balanceColor
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
+        Box {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "本月支出",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = "-¥${decimalFormat.format(totalExpense)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppExpenseRed
-                    )
+                Text(
+                    text = "当前结余",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (isAmountHidden) formatHiddenAmount(balance) else formatMoney(balance, withSign = false),
+                    style = MaterialTheme.typography.headlineMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 32.sp
+                    ),
+                    color = balanceColor
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "总支出",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                        )
+                        Text(
+                            text = if (isAmountHidden) "****" else "-¥${decimalFormat.format(globalExpense)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = AppExpenseRed
+                        )
+                    }
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "总收入",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                        )
+                        Text(
+                            text = if (isAmountHidden) "****" else "+¥${decimalFormat.format(globalIncome)}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = AppIncomeGreen
+                        )
+                    }
                 }
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = "本月收入",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
-                    )
-                    Text(
-                        text = "+¥${decimalFormat.format(totalIncome)}",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = AppIncomeGreen
-                    )
-                }
+            }
+
+            // 隐私切换按钮（右上角眼睛图标）
+            IconButton(
+                onClick = onToggleVisibility,
+                modifier = Modifier.align(Alignment.TopEnd)
+            ) {
+                Icon(
+                    imageVector = if (isAmountHidden) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                    contentDescription = if (isAmountHidden) "显示金额" else "隐藏金额",
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.5f),
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }
@@ -753,3 +776,8 @@ private fun formatMoney(amount: BigDecimal, withSign: Boolean = true): String {
         else -> "¥0.00"
     }
 }
+
+/**
+ * 格式化隐藏态金额为 `****` 字符串。
+ */
+private fun formatHiddenAmount(amount: BigDecimal): String = "****"

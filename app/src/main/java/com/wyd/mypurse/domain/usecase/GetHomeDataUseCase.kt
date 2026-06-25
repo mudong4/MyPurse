@@ -32,6 +32,8 @@ class GetHomeDataUseCase @Inject constructor(
         val thisWeek: PeriodSummary = PeriodSummary(),
         val thisMonth: PeriodSummary = PeriodSummary(),
         val thisYear: PeriodSummary = PeriodSummary(),
+        val globalExpense: BigDecimal = BigDecimal.ZERO,
+        val globalIncome: BigDecimal = BigDecimal.ZERO,
         val trend: List<MonthlyAmount> = emptyList(),
         val topCategories: List<CategoryAmount> = emptyList(),
         val budget: BigDecimal? = null,
@@ -59,6 +61,7 @@ class GetHomeDataUseCase @Inject constructor(
                 val thisWeek = repository.getWeeklySummary(now)
                 val thisMonth = repository.getMonthlySummary(year, month)
                 val thisYear = repository.getYearlySummary(year)
+                val global = repository.getGlobalSummary()
                 val topCategories = repository.getTopCategoriesByMonth(year, month, 5)
 
                 emit(
@@ -68,6 +71,8 @@ class GetHomeDataUseCase @Inject constructor(
                         thisWeek = thisWeek,
                         thisMonth = thisMonth,
                         thisYear = thisYear,
+                        globalExpense = global.expense,
+                        globalIncome = global.income,
                         trend = trend,
                         topCategories = topCategories,
                         budget = budget,

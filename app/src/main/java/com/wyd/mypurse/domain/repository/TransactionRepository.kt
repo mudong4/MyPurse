@@ -188,6 +188,11 @@ interface TransactionRepository {
      * 检查指定模板在指定日期是否已有自动记账记录（防重复）。
      */
     suspend fun countByTemplateAndDate(templateId: Long, dayStart: Long, dayEnd: Long): Int
+
+    /**
+     * 获取全局总支出和总收入（不分时间范围，一次性查询）。
+     */
+    suspend fun getGlobalSummary(): PeriodSummary
 }
 
 /**

@@ -14,6 +14,8 @@ data class HomeUiState(
     val thisWeek: PeriodSummary = PeriodSummary(),
     val thisMonth: PeriodSummary = PeriodSummary(),
     val thisYear: PeriodSummary = PeriodSummary(),
+    val globalExpense: BigDecimal = BigDecimal.ZERO,
+    val globalIncome: BigDecimal = BigDecimal.ZERO,
     val trend: List<MonthlyAmount> = emptyList(),
     val topCategories: List<CategoryAmount> = emptyList(),
     val budget: BigDecimal? = null,

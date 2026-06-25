@@ -367,6 +367,20 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM `transaction` WHERE recurring_template_id = :templateId AND date BETWEEN :dayStart AND :dayEnd")
     suspend fun countByTemplateAndDate(templateId: Long, dayStart: Long, dayEnd: Long): Int
 
+    // ========== V1.3 全局汇总 ==========
+
+    /**
+     * 获取全局总支出和总收入（不分时间范围）。
+     * 用于首页概览卡片底部显示。
+     */
+    @Query("""
+        SELECT 
+            COALESCE(SUM(CASE WHEN flow_type = '支出' THEN amount ELSE 0 END), 0) AS expense,
+            COALESCE(SUM(CASE WHEN flow_type != '支出' THEN amount ELSE 0 END), 0) AS income
+        FROM `transaction`
+    """)
+    suspend fun getGlobalSummary(): DaySummaryTuple
+
     // ========== V1.2 合并分类迁移 ==========
 
     /** 将所有一级分类 ID 为 oldId 的流水更新为 newId */

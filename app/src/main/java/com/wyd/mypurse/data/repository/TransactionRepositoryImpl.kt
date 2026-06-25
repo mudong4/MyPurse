@@ -293,6 +293,11 @@ class TransactionRepositoryImpl @Inject constructor(
         return transactionDao.countByTemplateAndDate(templateId, dayStart, dayEnd)
     }
 
+    override suspend fun getGlobalSummary(): PeriodSummary {
+        val tuple = transactionDao.getGlobalSummary()
+        return PeriodSummary(expense = tuple.expense, income = tuple.income)
+    }
+
     // ========== 时间工具 ==========
 
     private fun getDayStart(cal: Calendar): Long {
