@@ -211,7 +211,20 @@ class GetStatisticsUseCase @Inject constructor(
         flowType: String?,
         categoryL1Id: Long
     ): List<CategoryAmount> {
-        return repository.getSubCategoryComposition(rangeStart, rangeEnd, flowType, categoryL1Id)
+        val subList = repository.getSubCategoryComposition(rangeStart, rangeEnd, flowType, categoryL1Id).toMutableList()
+        val uncategorized = repository.getUncategorizedSubAmount(rangeStart, rangeEnd, flowType, categoryL1Id)
+        if (uncategorized > BigDecimal.ZERO) {
+            // 未选择二级分类的流水归入"未分类"行，排在最后
+            subList.add(
+                CategoryAmount(
+                    categoryL1Id = -2L,
+                    categoryL1 = "未分类",
+                    total = uncategorized,
+                    color = 0
+                )
+            )
+        }
+        return subList
     }
 
     /** 获取数据库中所有有交易记录的年份（降序） */

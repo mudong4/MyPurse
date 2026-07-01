@@ -398,6 +398,22 @@ interface TransactionDao {
     /** 批量更新二级分类快照名（分类改名/合并时同步） */
     @Query("UPDATE `transaction` SET category_l2 = :newName WHERE category_l2_id = :categoryId")
     suspend fun updateCategoryL2Snapshot(categoryId: Long, newName: String)
+
+    /** 获取指定一级分类下未选择二级分类的流水金额合计 */
+    @Query("""
+        SELECT COALESCE(SUM(t.amount), 0)
+        FROM `transaction` t
+        WHERE t.date BETWEEN :rangeStart AND :rangeEnd
+          AND (:flowType IS NULL OR t.flow_type = :flowType)
+          AND t.category_l1_id = :categoryL1Id
+          AND t.category_l2 IS NULL
+    """)
+    suspend fun getUncategorizedSubAmount(
+        rangeStart: Long,
+        rangeEnd: Long,
+        flowType: String?,
+        categoryL1Id: Long
+    ): BigDecimal
 }
 
 /**

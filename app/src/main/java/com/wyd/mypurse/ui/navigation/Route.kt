@@ -25,7 +25,10 @@ sealed class Route {
     data class AddTransaction(
         val defaultFlowType: String = "支出",
         val defaultDate: Long = System.currentTimeMillis(),
-        val transactionId: Long = 0
+        val transactionId: Long = 0,
+        val defaultAmount: String = "",
+        val defaultNote: String = "",
+        val preselectRefundCategory: Boolean = false
     ) : Route()
 
     /** 流水列表页 */

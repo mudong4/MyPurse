@@ -143,6 +143,16 @@ interface TransactionRepository {
     ): List<CategoryAmount>
 
     /**
+     * 获取指定一级分类下未选择二级分类的流水金额合计。
+     */
+    suspend fun getUncategorizedSubAmount(
+        rangeStart: Long,
+        rangeEnd: Long,
+        flowType: String?,
+        categoryL1Id: Long
+    ): BigDecimal
+
+    /**
      * 按指定粒度获取支出趋势数据。
      * label 格式：日="YYYY-MM-DD"、周="YYYY-Www"、月="YYYY-MM"、季="YYYY-Qn"、年="YYYY"
      */

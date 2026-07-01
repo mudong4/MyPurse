@@ -33,6 +33,9 @@ import com.wyd.mypurse.ui.statistics.StatisticsScreen
 import com.wyd.mypurse.ui.template.TemplateEditScreen
 import com.wyd.mypurse.ui.template.TemplateListScreen
 import com.wyd.mypurse.ui.transactionlist.TransactionListScreen
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * 底部导航栏 Tab 定义。
@@ -172,9 +175,23 @@ fun MyPurseNavHost(
                     defaultFlowType = route.defaultFlowType,
                     defaultDate = route.defaultDate,
                     transactionId = route.transactionId,
+                    defaultAmount = route.defaultAmount,
+                    defaultNote = route.defaultNote,
+                    preselectRefundCategory = route.preselectRefundCategory,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToCategoryManage = {
                         navController.navigate(Route.CategoryManage)
+                    },
+                    onNavigateToRefund = { amount, originalDate ->
+                        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.CHINA)
+                        navController.popBackStack()
+                        navController.navigate(Route.AddTransaction(
+                            defaultFlowType = "收入",
+                            defaultDate = System.currentTimeMillis(),
+                            defaultAmount = amount,
+                            defaultNote = dateFormat.format(Date(originalDate)),
+                            preselectRefundCategory = true
+                        ))
                     }
                 )
             }

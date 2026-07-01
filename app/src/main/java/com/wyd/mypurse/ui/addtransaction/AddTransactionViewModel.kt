@@ -35,11 +35,25 @@ class AddTransactionViewModel @Inject constructor(
 
     /**
      * 初始化默认值（从首页进入时传入）。
+     * @param defaultAmount 预填金额（如退款场景），空字符串表示不预填
+     * @param defaultNote 预填备注（如退款场景带原记录日期）
+     * @param preselectRefundCategory 是否自动选中"退款"分类（收入侧退款快捷入口）
      */
-    fun initialize(defaultFlowType: String, defaultDate: Long) {
+    fun initialize(
+        defaultFlowType: String,
+        defaultDate: Long,
+        defaultAmount: String = "",
+        defaultNote: String = "",
+        preselectRefundCategory: Boolean = false
+    ) {
         val flowType = if (defaultFlowType == FlowType.INCOME.name) FlowType.INCOME else FlowType.EXPENSE
-        _uiState.update { it.copy(selectedFlowType = flowType, date = defaultDate) }
-        loadTopLevelCategories(flowType.sign)
+        _uiState.update { it.copy(
+            selectedFlowType = flowType,
+            date = defaultDate,
+            amount = defaultAmount,
+            note = defaultNote
+        ) }
+        loadTopLevelCategories(flowType.sign, preselectRefund = preselectRefundCategory)
     }
 
     // ========== 金额 ==========
@@ -334,13 +348,28 @@ class AddTransactionViewModel @Inject constructor(
 
     // ========== 内部 ==========
 
-    private fun loadTopLevelCategories(flowSign: Int) {
+    private fun loadTopLevelCategories(flowSign: Int, preselectRefund: Boolean = false) {
         viewModelScope.launch {
             // 确保种子数据已初始化（首次安装时数据库为空）
             databaseInitializer.initializeIfNeeded()
             val categories = categoryRepository.getTopLevelCategoriesBySignOnce(flowSign)
                 .filter { !it.isHidden }
-            _uiState.update { it.copy(topLevelCategories = categories) }
+            _uiState.update {
+                var state = it.copy(topLevelCategories = categories)
+                if (preselectRefund) {
+                    // 找"退款"分类，若用户已删除则自动恢复
+                    var refund = categories.find { cat -> cat.name == "退款" }
+                    if (refund == null) {
+                        val newId = categoryRepository.addCategory(
+                            name = "退款", parentId = null, isDefault = false,
+                            flowSign = 1, color = 0xFF9CCC65
+                        )
+                        refund = Category(id = newId, name = "退款", parentId = null, flowSign = 1, color = 0xFF9CCC65)
+                    }
+                    state = state.copy(categoryL1 = refund)
+                }
+                state
+            }
         }
     }
 

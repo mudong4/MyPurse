@@ -239,6 +239,15 @@ class TransactionRepositoryImpl @Inject constructor(
             .map { CategoryAmount(categoryL1Id = categoryL1Id, categoryL1 = it.categoryL1, total = it.total, color = it.color) }
     }
 
+    override suspend fun getUncategorizedSubAmount(
+        rangeStart: Long,
+        rangeEnd: Long,
+        flowType: String?,
+        categoryL1Id: Long
+    ): BigDecimal {
+        return transactionDao.getUncategorizedSubAmount(rangeStart, rangeEnd, flowType, categoryL1Id)
+    }
+
     override suspend fun getExpenseTrend(
         granularity: String,
         rangeStart: Long,

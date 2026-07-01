@@ -66,6 +66,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wyd.mypurse.domain.model.Category
 import com.wyd.mypurse.domain.repository.FlowType
+import java.math.BigDecimal
 import com.wyd.mypurse.ui.components.ChineseDatePickerDialog
 import com.wyd.mypurse.ui.components.EmptyStateText
 import com.wyd.mypurse.ui.components.rememberDebounce
@@ -88,8 +89,12 @@ fun AddTransactionScreen(
     defaultFlowType: String,
     defaultDate: Long,
     transactionId: Long = 0,
+    defaultAmount: String = "",
+    defaultNote: String = "",
+    preselectRefundCategory: Boolean = false,
     onNavigateBack: () -> Unit,
     onNavigateToCategoryManage: () -> Unit,
+    onNavigateToRefund: (amount: String, originalDate: Long) -> Unit = { _, _ -> },
     viewModel: AddTransactionViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -103,7 +108,7 @@ fun AddTransactionScreen(
         if (transactionId > 0) {
             viewModel.loadForEdit(transactionId)
         } else {
-            viewModel.initialize(defaultFlowType, defaultDate)
+            viewModel.initialize(defaultFlowType, defaultDate, defaultAmount, defaultNote, preselectRefundCategory)
         }
     }
 
@@ -243,6 +248,28 @@ fun AddTransactionScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text("保存", fontSize = 18.sp)
+                }
+
+                // 8. 退款按钮（仅编辑模式下支出记录可见）
+                if (isEditMode && uiState.selectedFlowType == FlowType.EXPENSE) {
+                    Button(
+                        onClick = {
+                            val amount = uiState.amountDecimal?.toPlainString() ?: ""
+                            onNavigateToRefund(amount, uiState.date)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(48.dp),
+                        enabled = (uiState.amountDecimal ?: BigDecimal.ZERO) > BigDecimal.ZERO,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                    ) {
+                        Text("退款", fontSize = 16.sp)
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
 
                 // 错误提示
